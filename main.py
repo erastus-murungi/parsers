@@ -3,13 +3,13 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from functools import cache, reduce
-from typing import Collection, Optional, Sequence, TypeGuard, cast, Callable
+from typing import Callable, Collection, Optional, Sequence, TypeGuard, cast
 
-from tokenizer import Token, Tokenizer, TokenType
 from rich import print as rprint
 from rich.pretty import pretty_repr
-
 from rich.traceback import install
+
+from tokenizer import Tokenizer
 
 install(show_locals=True)
 
@@ -30,11 +30,13 @@ class Symbol(ABC):
 
 
 class Terminal(Symbol):
-    def __init__(self, label: str, matching_function: Callable[[Token], bool]):
+    def __init__(
+        self, label: str, matching_function: Callable[[Tokenizer.Token], bool]
+    ):
         super().__init__(label)
         self.matching_function = matching_function
 
-    def matches(self, token: Token) -> bool:
+    def matches(self, token: Tokenizer.Token) -> bool:
         return self.matching_function(token)
 
     def __hash__(self):
@@ -58,8 +60,8 @@ class Marker(Terminal):
         return self.id
 
 
-EOF = Marker(TokenType.EOF.value, lambda token: token.token_type == TokenType.EOF)
-EMPTY = Marker(TokenType.EMPTY.value, lambda token: True)
+EOF = Marker("eof", lambda token: token.token_type == "eof")
+EMPTY = Marker("ε", lambda token: True)
 
 
 class Variable(Symbol):
@@ -83,7 +85,7 @@ class SententialForm(tuple[Symbol]):
     def __iter__(self):
         yield from filter(lambda token: token is not EMPTY, super().__iter__())
 
-    def matches(self, tokens: Sequence[Token]) -> bool:
+    def matches(self, tokens: Sequence[Tokenizer.Token]) -> bool:
         def all_terminals(symbols: Sequence[Symbol]) -> TypeGuard[Sequence[Terminal]]:
             return all(isinstance(symbol, Terminal) for symbol in symbols)
 
@@ -108,7 +110,10 @@ class SententialForm(tuple[Symbol]):
                 yield index, symbol
 
     def should_prune(
-        self, tokens: Sequence[Token], seen: set["SententialForm"], nullable_set
+        self,
+        tokens: Sequence[Tokenizer.Token],
+        seen: set["SententialForm"],
+        nullable_set,
     ) -> bool:
         # if this is a sentential form we have explored, just ignore it
         if self in seen:
@@ -233,7 +238,7 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
         return "\n".join(line(rhs, lhs) for rhs, lhs in self.items())
 
     def leftmost_top_down_parsing_bfs(
-        self, tokens: list[Token], max_iters: int = 1000_000
+        self, tokens: list[Tokenizer.Token], max_iters: int = 1000_000
     ):
         """
         Enormous time and memory usage:
@@ -286,7 +291,7 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
             n_iters += 1
 
     def leftmost_top_down_parsing_dfs(
-        self, tokens: list[Token], max_iters: int = 1000_000
+        self, tokens: list[Tokenizer.Token], max_iters: int = 1000_000
     ):
         start = SententialForm((self.augmented_start,))
         root = Node(start)
@@ -330,7 +335,7 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
 
     def nullable(self) -> set[Symbol]:
         """https://fileadmin.cs.lth.se/cs/Education/EDAN65/2020/lectures/L05A.pdf"""
-        nullable_set = {EMPTY}
+        nullable_set: set[Symbol] = {EMPTY}
 
         num_nullable = 0
         while True:
@@ -349,11 +354,11 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
         return nullable_set
 
     def first(self) -> dict[Symbol, set[Terminal]]:
-        first_set = defaultdict(set)
+        first_set: dict[Symbol, set[Terminal]] = defaultdict(set)
         first_set.update({terminal: {terminal} for terminal in self.terminals})
         nullable_set = self.nullable()
 
-        def first_sentential_form(sf):
+        def first_sentential_form(sf: Sequence[Symbol]) -> set[Terminal]:
             if not sf:
                 return set()
             s, *lam = sf
@@ -367,7 +372,7 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
         while changed:
             changed = False
             for X, sentential_forms in self.items():
-                new_value = reduce(
+                new_value: set[Terminal] = reduce(
                     set.union, (map(first_sentential_form, sentential_forms)), set()
                 )
                 if new_value != first_set[X]:
@@ -464,7 +469,7 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
                         parsing_table[(A, b.id)] = sentential_form
         return dict(parsing_table)
 
-    def match(self, tokens: Sequence[Token]):
+    def match(self, tokens: Sequence[Tokenizer.Token]):
         parsing_table = self.parsing_table()
         stack, index = [EOF, self._start_symbol], 0
         rules = []
@@ -478,21 +483,22 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
                 else:
                     raise SyntaxError(f"Expected {symbol.id} but got {token}")
             else:
+                symbol = cast(Variable, Symbol)
                 if (rule := parsing_table.get((symbol, token.id))) is not None:
                     stack.extend(reversed(rule))
                     rules.append(ProductionRule(symbol, rule))
                 else:
                     raise SyntaxError(
-                        f'At position {token.loc}, '
-                        f'was parsing {symbol!s} '
+                        f"At position {token.loc}, "
+                        f"was parsing {symbol!s} "
                         f'expecting one of ({", ".join(terminal.id for terminal in self.first()[symbol])}), '
-                        f'but found {token.id!s}'
+                        f"but found {token.id!s}"
                     )
         assert index >= len(tokens)
         return rules
 
     @classmethod
-    def from_string(cls, grammar) -> "ContextFreeGrammar":
+    def from_string(cls, grammar, token_table) -> "ContextFreeGrammar":
         """
         Ad Hoc grammar parser
         """
@@ -516,7 +522,7 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
             for part in parts:
                 part = part.strip()
                 matches = list(re.finditer(cls.NON_TERMINAL_REGEX, part))
-                tokens_sequence = []
+                tokens_sequence: list[str] = []
                 prev = 0
                 for match in matches:
                     tokens_sequence.extend(part[prev : match.start()].split())
@@ -524,7 +530,7 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
                     prev = match.end()
                 tokens_sequence.extend(part[prev:].split())
 
-                sentential_form = []
+                sentential_form: list[Symbol] = []
 
                 def bind_symbol(character: str):
                     return lambda tok: tok.lexeme == character
@@ -538,13 +544,14 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
                     elif token.startswith("\\d"):
                         sentential_form.append(
                             Terminal(
-                                TokenType.INT.value,
-                                lambda tok: tok.token_type == TokenType.INT,
+                                "integer",
+                                lambda tok: tok.token_type == "integer",
                             )
                         )
                     else:
-                        # will raise ValueError if token type not defined
-                        sentential_form.append(Terminal(token, bind_symbol(token)))
+                        sentential_form.append(
+                            Terminal(token_table.get(token, token), bind_symbol(token))
+                        )
                 cfg_obj.add_production_rule(
                     non_terminal, SententialForm(sentential_form)
                 )
@@ -585,6 +592,7 @@ if __name__ == "__main__":
     #         <B> ::= <>
     #         <B> ::= b<B>
     # """
+    tk_table = {"+": "+", "(": "(", "*": "*", ")": ")"}
     g = """ 
             <E>
             <E> ::= <T><E'>
@@ -594,12 +602,12 @@ if __name__ == "__main__":
             <F> ::= (<E>) | \\d
     """
 
-    cfg = ContextFreeGrammar.from_string(g)
+    cfg = ContextFreeGrammar.from_string(g, tk_table)
     rprint(pretty_repr(cfg))
     # rprint(pretty_repr(cfg.non_terminals))
 
-    tks = Tokenizer("10 + (4*10) + 10").get_tokens_no_whitespace()
-    rprint(pretty_repr(cfg.leftmost_top_down_parsing_dfs(tks)))
+    tks = Tokenizer("10 + (4*10) + 10", tk_table).get_tokens_no_whitespace()
+    # rprint(pretty_repr(cfg.leftmost_top_down_parsing_dfs(tks)))
     rprint(pretty_repr(cfg.nullable()))
     rprint(pretty_repr(cfg.first()))
     rprint(pretty_repr(cfg.follow()))
