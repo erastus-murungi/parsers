@@ -153,19 +153,19 @@ class Tokenizer:
     def _match_keyword(self) -> Optional[tuple[str, TokenType]]:
         re_match = re.match("^" + Name, self._code[self._code_offset :])
         if re_match is not None:
-            re_match = re_match.group(0)
-            if re_match == TokenType.CONST.value:
-                return TokenType.CONST.value, TokenType.CONST
-            elif re_match == TokenType.FUNCTION.value:
-                return TokenType.FUNCTION.value, TokenType.FUNCTION
-            elif re_match == TokenType.LET.value:
-                return TokenType.LET.value, TokenType.LET
-            elif re_match == TokenType.IN.value:
-                return TokenType.IN.value, TokenType.IN
-            elif re_match == TokenType.RETURN.value:
-                return TokenType.RETURN.value, TokenType.RETURN
-            else:
-                return re_match, TokenType.ID
+            if (re_match_str := re_match.group(0)) is not None:
+                if re_match_str == TokenType.CONST.value:
+                    return TokenType.CONST.value, TokenType.CONST
+                elif re_match_str == TokenType.FUNCTION.value:
+                    return TokenType.FUNCTION.value, TokenType.FUNCTION
+                elif re_match_str == TokenType.LET.value:
+                    return TokenType.LET.value, TokenType.LET
+                elif re_match_str == TokenType.IN.value:
+                    return TokenType.IN.value, TokenType.IN
+                elif re_match_str == TokenType.RETURN.value:
+                    return TokenType.RETURN.value, TokenType.RETURN
+                else:
+                    return re_match_str, TokenType.ID
         return None
 
     def _try_match_keyword_or_number(self, pos) -> Token:

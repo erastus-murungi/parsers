@@ -1,6 +1,6 @@
 from collections import defaultdict, deque
 from dataclasses import dataclass
-from typing import Collection, Hashable, Self, Sequence
+from typing import Collection, Hashable, Optional, Sequence, TypeGuard, cast
 
 from tokenizer import Token, Tokenizer, TokenType
 
@@ -44,16 +44,19 @@ class Variable(Symbol):
 class SententialForm(tuple[Symbol]):
     def __init__(self, args):
         super().__new__(SententialForm, args)
-        self.only_terminals = all(isinstance(symbol, Terminal) for symbol in self)
 
     def matches(self, tokens: Sequence[Token]) -> bool:
-        if not self.only_terminals:
-            return False
-        if len(self) != len(tokens):
-            return False
-        return all(terminal.matches(token) for terminal, token in zip(self, tokens))
+        def all_terminals(symbols: Sequence[Symbol]) -> TypeGuard[Sequence[Terminal]]:
+            return all(isinstance(symbol, Terminal) for symbol in symbols)
 
-    def perform_derivation(self, index, replacer: Self) -> Self:
+        if len(self) == len(tokens):
+            if all_terminals(self):
+                return all(
+                    terminal.matches(token) for terminal, token in zip(self, tokens)
+                )
+        return False
+
+    def perform_derivation(self, index, replacer: "SententialForm") -> "SententialForm":
         return SententialForm(self[:index] + replacer + self[index + 1 :])
 
     def enumerate_variables(self):
@@ -61,11 +64,33 @@ class SententialForm(tuple[Symbol]):
             if isinstance(symbol, Variable):
                 yield index, symbol
 
-    def should_prune(self, tokens: Sequence[Token]) -> bool:
+    def should_prune(self, tokens: Sequence[Token], seen) -> bool:
+        # if this is a sentential form we have explored, just ignore it
+        if self in seen:
+            return True
+
+        # if the pattern is longer than the number of tokens then
+        # we should prune
         if len(self) > len(tokens):
             return True
+
+        # if we have a prefix of terminals which doesn't match the tokens
+        # we should prune
+        for (symbol, token) in zip(self, tokens):
+            if isinstance(symbol, Terminal):
+                if not symbol.matches(token):
+                    return True
+            else:
+                break
+        else:
+            # if the sentential form is a PROPER prefix of the tokens
+            # we should prune
+            return len(self) != len(tokens)
+
+        # if any of the tokens in the sentential form is not in the tokens,
+        # we should prune
         for terminal in filter(lambda item: isinstance(item, Terminal), self):
-            if not any(terminal.matches(token) for token in tokens):
+            if not any(cast(Terminal, terminal).matches(token) for token in tokens):
                 return True
         return False
 
@@ -84,9 +109,19 @@ class ProductionRule:
         yield from [self.variable, self.sequence]
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class Node:
-    ...
+    form: SententialForm
+    index: Optional[int] = None
+    production_rule: Optional[ProductionRule] = None
+
+    def update(
+        self, index: int, production_rule, replacement: SententialForm
+    ) -> tuple["Node", "Node"]:
+        return Node(self.form, index, production_rule), Node(replacement)
+
+
+ParseTreeSearchSpaceNode = tuple[tuple[Node, ...], SententialForm]
 
 
 class ContextFreeGrammar(defaultdict[Variable, list[SententialForm]]):
@@ -122,7 +157,9 @@ class ContextFreeGrammar(defaultdict[Variable, list[SententialForm]]):
 
         return "\n".join(line(rhs, lhs) for rhs, lhs in self.items())
 
-    def naive_top_down_parsing(self, tokens: list[Token], max_iters: int = 1000_000):
+    def leftmost_top_down_parsing_bfs(
+        self, tokens: list[Token], max_iters: int = 1000_000
+    ):
         """
         Enormous time and memory usage:
             ● Lots of wasted effort:
@@ -134,43 +171,61 @@ class ContextFreeGrammar(defaultdict[Variable, list[SententialForm]]):
             ● High branching factor:
                 – Each sentential replacement can expand in (potentially)
                 many ways for each non-terminal it contains.
-
-        :param tokens:
-        :param max_iters:
-        :return:
         """
-        sentential_forms: deque[tuple[tuple, SententialForm]] = deque(
-            [((), SententialForm((self.start_symbol,)))]
-        )
+
+        start = SententialForm((self.start_symbol,))
+        root = Node(start)
+        sentential_forms: deque[ParseTreeSearchSpaceNode] = deque([((root,), start)])
+        seen = set()
 
         n_iters = 0
         while sentential_forms and n_iters < max_iters:
             tree, sentential_form = sentential_forms.popleft()
+
+            seen.add(sentential_form)
+
+            rprint(repr(sentential_form))
 
             if sentential_form.matches(tokens):
                 return tree
 
             for index, symbol in sentential_form.enumerate_variables():
                 for replacement in self[symbol]:
+                    if (
+                        next_form := sentential_form.perform_derivation(
+                            index, replacement
+                        )
+                    ).should_prune(tokens, seen):
+                        continue
                     sentential_forms.append(
                         (
-                            tree + (sentential_form,),
-                            sentential_form.perform_derivation(index, replacement),
+                            tree[:-1]
+                            + tree[-1].update(
+                                index, ProductionRule(symbol, replacement), next_form
+                            ),
+                            next_form,
                         )
                     )
 
             n_iters += 1
 
-    def leftmost_top_down_parsing(self, tokens: list[Token], max_iters: int = 1000_000):
-        stack: list[tuple[tuple, SententialForm]] = [
-            ((), SententialForm((self.start_symbol,)))
-        ]
+    def leftmost_top_down_parsing_dfs(
+        self, tokens: list[Token], max_iters: int = 1000_000
+    ):
+        start = SententialForm((self.start_symbol,))
+        root = Node(start)
+        stack: list[ParseTreeSearchSpaceNode] = [((root,), start)]
+        seen = set()
 
         n_iters = 0
-
         while stack and n_iters < max_iters:
             tree, sentential_form = stack.pop()
+
+            seen.add(sentential_form)
+
             rprint(repr(sentential_form))
+
+            seen.add(sentential_form)
 
             if sentential_form.matches(tokens):
                 return tree
@@ -183,12 +238,15 @@ class ContextFreeGrammar(defaultdict[Variable, list[SententialForm]]):
                         next_form := sentential_form.perform_derivation(
                             index, replacement
                         )
-                    ).should_prune(tokens):
+                    ).should_prune(tokens, seen):
                         continue
 
                     next_in_stack.append(
                         (
-                            tree + (sentential_form,),
+                            tree[:-1]
+                            + tree[-1].update(
+                                index, ProductionRule(symbol, replacement), next_form
+                            ),
                             next_form,
                         )
                     )
@@ -199,25 +257,43 @@ class ContextFreeGrammar(defaultdict[Variable, list[SententialForm]]):
 if __name__ == "__main__":
     from rich import print as rprint
 
-    E, T, plus, integer, left_paren, right_paren = (
+    E, T, Op, integer, left_paren, right_paren = (
         Variable("E"),
         Variable("T"),
-        Terminal(TokenType.ADD),
+        Variable("Op"),
         Terminal(TokenType.INT),
         Terminal(TokenType.L_PAR),
         Terminal(TokenType.R_PAR),
     )
+    plus, minus, mul, div = map(
+        Terminal,
+        [
+            TokenType.ADD,
+            TokenType.MULTIPLY,
+            TokenType.SUBTRACT,
+            TokenType.TRUE_DIV,
+        ],
+    )
     cfg = ContextFreeGrammar(E)
     cfg.add_production_rule(E, SententialForm([T]))
-    cfg.add_production_rule(E, SententialForm((T, plus, E)))
+    cfg.add_production_rule(E, SententialForm((T, Op, E)))
     cfg.add_production_rule(T, SententialForm((integer,)))
     cfg.add_production_rule(T, SententialForm((left_paren, E, right_paren)))
+    cfg.add_many_production_rule(
+        Op,
+        [
+            SententialForm((plus,)),
+            SententialForm((minus,)),
+            SententialForm((mul,)),
+            SententialForm((div,)),
+        ],
+    )
 
     rprint(repr(cfg))
     rprint(
         repr(
-            cfg.naive_top_down_parsing(
-                Tokenizer("10 + 10 + (12)").get_tokens_no_whitespace()
+            cfg.leftmost_top_down_parsing_dfs(
+                Tokenizer("(10) * 10 + (10 / 3)").get_tokens_no_whitespace()
             )
         )
     )
