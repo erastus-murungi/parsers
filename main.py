@@ -1,75 +1,79 @@
-from abc import abstractmethod, ABC
+import re
+from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from dataclasses import dataclass
-from functools import reduce, cache
-from typing import Collection, Hashable, Optional, Sequence, TypeGuard, cast
+from functools import cache, reduce
+from typing import Collection, Optional, Sequence, TypeGuard, cast, Callable
 
 from tokenizer import Token, Tokenizer, TokenType
+from rich import print as rprint
+from rich.pretty import pretty_repr
+
+from rich.traceback import install
+
+install(show_locals=True)
 
 
-class Symbol(Hashable, ABC):
-    def __init__(self, label: str) -> None:
-        self._label = label
+class Symbol(ABC):
+    def __init__(self, _id: str) -> None:
+        self.id = _id
 
     def __hash__(self) -> int:
-        return hash(self._label)
-
-    @abstractmethod
-    def __rich_repr__(self):
-        pass
+        return hash(self.id)
 
     @abstractmethod
     def __repr__(self):
         pass
+
+    def __str__(self):
+        return self.id
 
 
 class Terminal(Symbol):
-    def __init__(self, token_type: TokenType):
-        super().__init__(token_type.value)
-        self.token_type = token_type
+    def __init__(self, label: str, matching_function: Callable[[Token], bool]):
+        super().__init__(label)
+        self.matching_function = matching_function
 
     def matches(self, token: Token) -> bool:
-        return self.token_type == token.token_type
+        return self.matching_function(token)
 
-    def __rich_repr__(self):
-        yield self._label
+    def __hash__(self):
+        return super().__hash__()
 
-    def __repr__(self):
-        return f"[bold blue]{self._label}[/bold blue]"
-
-
-class _Empty(Terminal):
-    def __init__(self):
-        super().__init__(TokenType.EMPTY)
-
-    def matches(self, token: Token):
-        return True
+    def __eq__(self, other):
+        return self.id == other.id
 
     def __repr__(self):
-        return f"[bold cyan]ε[/bold cyan]"
+        return f"[bold blue]{self.id}[/bold blue]"
+
+    def __str__(self):
+        return self.id
 
 
-class _EndOfFile(Terminal):
-    def __init__(self):
-        super().__init__(TokenType.EOF)
-
-    def matches(self, token: Token):
-        return token.token_type == TokenType.EOF
-
+class Marker(Terminal):
     def __repr__(self):
-        return f"[bold cyan]$[/bold cyan]"
+        return f"[bold cyan]{self.id}[/bold cyan]"
+
+    def __str__(self):
+        return self.id
 
 
-EOF = _EndOfFile()
-EMPTY = _Empty()
+EOF = Marker(TokenType.EOF.value, lambda token: token.token_type == TokenType.EOF)
+EMPTY = Marker(TokenType.EMPTY.value, lambda token: True)
 
 
 class Variable(Symbol):
-    def __rich_repr__(self):
-        yield f"<{self._label.capitalize()}>"
-
     def __repr__(self):
-        return f"[bold red]<{self._label.capitalize()}>[/bold red]"
+        return f"[bold red]<{self.id.capitalize()}>[/bold red]"
+
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __hash__(self):
+        return super().__hash__()
+
+    def __str__(self):
+        return self.id
 
 
 class SententialForm(tuple[Symbol]):
@@ -136,6 +140,12 @@ class SententialForm(tuple[Symbol]):
     def __len__(self):
         return super().__len__() - self.count(EMPTY)
 
+    def __str__(self):
+        return f'`{"".join(str(item) for item in self)}`'
+
+    def __repr__(self):
+        return f'`{"".join(repr(item) for item in self)}`'
+
 
 @dataclass(frozen=True)
 class ProductionRule:
@@ -167,6 +177,8 @@ ParseTreeSearchSpaceNode = tuple[tuple[Node, ...], SententialForm]
 class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
     __slots__ = ("augmented_start", "_start_symbol", "terminals")
 
+    NON_TERMINAL_REGEX = r"<([A-Z][\w\']*)>"
+
     def __init__(self, start_symbol: Variable):
         super().__init__()
         self._start_symbol: Variable = start_symbol
@@ -179,7 +191,7 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
 
     @property
     def non_terminals(self) -> Collection[Variable]:
-        return self.keys()
+        return set(self.keys())
 
     def add_production_rule(self, rhs: Variable, lhs: SententialForm) -> None:
         assert isinstance(rhs, Variable)
@@ -210,16 +222,6 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
     ) -> None:
         for sentential_form in sentential_forms:
             self.add_production_rule(rhs, sentential_form)
-
-    def __rich_repr__(self) -> str:
-        def rich_text(symbol: Symbol) -> str:
-            return tuple(symbol.__rich_repr__())[0]
-
-        def line(rhs: Variable, lhs: list[SententialForm]) -> str:
-            return f'{rich_text(rhs)} => {" | ".join("".join(map(rich_text, item)) for item in lhs)}\n'
-
-        for rhs, lhs in self.items():
-            yield line(rhs, lhs)
 
     def __repr__(self) -> str:
         def rich_text(symbol: Symbol) -> str:
@@ -439,82 +441,167 @@ class ContextFreeGrammar(dict[Variable, list[SententialForm]]):
         def nullable_sf(sf):
             return all(_sym in nullable_set for _sym in sf)
 
-        M: dict[tuple, set] = defaultdict(set)
+        parsing_table: dict[tuple, SententialForm] = {}
         for A, sentential_forms in self.items():
             for sentential_form in sentential_forms:
-                FIRST = first_sf(sentential_form)
-                for a in FIRST:
+                for a in first_sf(sentential_form):
                     if a is not EMPTY:
-                        M[(A, a)].add(ProductionRule(A, sentential_form))
-                if EMPTY in FIRST:
+                        if (A, a.id) in parsing_table:
+                            raise ValueError(
+                                f"grammar not LL(1); "
+                                f"we have <{A}, {a.id}> mapping to {parsing_table[(A, a.id)]!s}, {sentential_form!s}"
+                            )
+                        parsing_table[(A, a.id)] = sentential_form
+                if nullable_sf(
+                    sentential_form
+                ):  # if EMPTY in first_sf(sentential_form)
                     for b in follow_set[A]:
-                        M[(A, b)].add(ProductionRule(A, sentential_form))
+                        if (A, b.id) in parsing_table:
+                            raise ValueError(
+                                f"grammar not LL(1); "
+                                f"we have <{A}, {b.id}> mapping to {parsing_table[(A, b.id)]!s}, {sentential_form!s}"
+                            )
+                        parsing_table[(A, b.id)] = sentential_form
+        return dict(parsing_table)
 
-        for A in self.non_terminals:
-            for a in self.terminals:
-                if not M[(A, a)]:
-                    M[(A, a)] = None
-        return M
+    def match(self, tokens: Sequence[Token]):
+        parsing_table = self.parsing_table()
+        stack, index = [EOF, self._start_symbol], 0
+        rules = []
+
+        while stack:
+            symbol = stack.pop()
+            token = tokens[index]
+            if isinstance(symbol, Terminal):
+                if symbol.matches(token):
+                    index += 1
+                else:
+                    raise SyntaxError(f"Expected {symbol.id} but got {token}")
+            else:
+                if (rule := parsing_table.get((symbol, token.id))) is not None:
+                    stack.extend(reversed(rule))
+                    rules.append(ProductionRule(symbol, rule))
+                else:
+                    raise SyntaxError(
+                        f'At position {token.loc}, '
+                        f'was parsing {symbol!s} '
+                        f'expecting one of ({", ".join(terminal.id for terminal in self.first()[symbol])}), '
+                        f'but found {token.id!s}'
+                    )
+        assert index >= len(tokens)
+        return rules
+
+    @classmethod
+    def from_string(cls, grammar) -> "ContextFreeGrammar":
+        """
+        Ad Hoc grammar parser
+        """
+        lines = grammar.strip().split("\n")
+        start_symbol_str = re.match(cls.NON_TERMINAL_REGEX, lines[0])
+        if start_symbol_str is None:
+            raise ValueError("no start symbol found")
+        start_symbol = Variable(start_symbol_str.group(1))
+        cfg_obj = ContextFreeGrammar(start_symbol)
+
+        for line in lines[1:]:
+            lhs, rhs = re.split(r"::=", line)
+            non_terminal_str = re.match(cls.NON_TERMINAL_REGEX, lhs.strip())
+            if non_terminal_str is None:
+                raise ValueError(
+                    f"no non-terminal on rhs of {line}, check that syntax is correct"
+                )
+            non_terminal = Variable(non_terminal_str.group(1))
+
+            parts = rhs.split("|")
+            for part in parts:
+                part = part.strip()
+                matches = list(re.finditer(cls.NON_TERMINAL_REGEX, part))
+                tokens_sequence = []
+                prev = 0
+                for match in matches:
+                    tokens_sequence.extend(part[prev : match.start()].split())
+                    tokens_sequence.append(match.group(0))
+                    prev = match.end()
+                tokens_sequence.extend(part[prev:].split())
+
+                sentential_form = []
+
+                def bind_symbol(character: str):
+                    return lambda tok: tok.lexeme == character
+
+                for token in tokens_sequence:
+                    if token == "<>":
+                        break
+                    elif token.startswith("<"):
+                        # this is a non-terminal
+                        sentential_form.append(Variable(token[1:-1]))
+                    elif token.startswith("\\d"):
+                        sentential_form.append(
+                            Terminal(
+                                TokenType.INT.value,
+                                lambda tok: tok.token_type == TokenType.INT,
+                            )
+                        )
+                    else:
+                        # will raise ValueError if token type not defined
+                        sentential_form.append(Terminal(token, bind_symbol(token)))
+                cfg_obj.add_production_rule(
+                    non_terminal, SententialForm(sentential_form)
+                )
+
+        return cfg_obj
 
 
 if __name__ == "__main__":
-    from rich import print as rprint
-    from rich.pretty import pretty_repr
 
-    E, T, Op, Sign, integer, left_paren, right_paren = (
-        Variable("E"),
-        Variable("T"),
-        Variable("Op"),
-        Variable("Sign"),
-        Terminal(TokenType.INT),
-        Terminal(TokenType.L_PAR),
-        Terminal(TokenType.R_PAR),
-    )
-    plus, minus, mul, div = map(
-        Terminal,
-        [
-            TokenType.ADD,
-            TokenType.SUBTRACT,
-            TokenType.MULTIPLY,
-            TokenType.TRUE_DIV,
-        ],
-    )
+    # g = """
+    #         <E>
+    #         <E> ::= \\d
+    #         <E> ::= (<E> <Op> <E>)
+    #         <Op> ::= +
+    #         <Op> ::= *
+    # """
+    #
+    # cfg = ContextFreeGrammar.from_string(g)
+    # rprint(pretty_repr(cfg))
+    # rprint(pretty_repr(cfg.non_terminals))
+    #
+    # tokens = Tokenizer("((10 + 7) * 7)").get_tokens_no_whitespace()
+    # rprint(pretty_repr(cfg.leftmost_top_down_parsing_dfs(tokens)))
+    # rprint(pretty_repr(cfg.nullable()))
+    # rprint(pretty_repr(cfg.first()))
+    # rprint(pretty_repr(cfg.follow()))
+    # rprint(pretty_repr(cfg.parsing_table()))
+    # rprint(pretty_repr(cfg.match(tokens)))
 
-    cfg = ContextFreeGrammar(E)
-    cfg.add_production_rule(E, SententialForm([T]))
-    cfg.add_production_rule(E, SententialForm((T, Op, E)))
-    cfg.add_production_rule(
-        T,
-        SententialForm(
-            (
-                Sign,
-                integer,
-            )
-        ),
-    )
-    cfg.add_production_rule(T, SententialForm((left_paren, E, right_paren)))
-    cfg.add_production_rule(Sign, SententialForm([minus]))
-    cfg.add_production_rule(Sign, SententialForm([plus]))
-    cfg.add_production_rule(Sign, SententialForm([]))
-    cfg.add_many_production_rules(
-        Op,
-        [
-            SententialForm((plus,)),
-            SententialForm((minus,)),
-            SententialForm((mul,)),
-            SententialForm((div,)),
-        ],
-    )
+    # g = """
+    #         <A>
+    #         <A> ::= <A>b
+    #         <A> ::= c
+    # """
+    # g = """
+    #         <A>
+    #         <A> ::= c<B>
+    #         <B> ::= <>
+    #         <B> ::= b<B>
+    # """
+    g = """ 
+            <E>
+            <E> ::= <T><E'>
+            <E'> ::= + <T><E'>|<>
+            <T> ::= <F><T'>
+            <T'> ::= * <F><T'> | <>
+            <F> ::= (<E>) | \\d
+    """
 
-    rprint(repr(cfg))
-    rprint(
-        repr(
-            cfg.leftmost_top_down_parsing_dfs(
-                Tokenizer("+10 + 7 + 1").get_tokens_no_whitespace()
-            )
-        )
-    )
+    cfg = ContextFreeGrammar.from_string(g)
+    rprint(pretty_repr(cfg))
+    # rprint(pretty_repr(cfg.non_terminals))
+
+    tks = Tokenizer("10 + (4*10) + 10").get_tokens_no_whitespace()
+    rprint(pretty_repr(cfg.leftmost_top_down_parsing_dfs(tks)))
     rprint(pretty_repr(cfg.nullable()))
     rprint(pretty_repr(cfg.first()))
     rprint(pretty_repr(cfg.follow()))
     rprint(pretty_repr(cfg.parsing_table()))
+    rprint(pretty_repr(cfg.match(tks)))

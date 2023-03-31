@@ -50,10 +50,10 @@ class TokenType(Enum):
     FLOAT = "float"
     INT = "integer"
     WHITESPACE = "whitespace"
-    EOF = "EOF"
+    EOF = "$"
     COMMENT = "#"
 
-    EMPTY = "ε"
+    EMPTY = "EMPTY"
 
     def __repr__(self):
         return self.name
@@ -77,6 +77,12 @@ class Token:
         """A convenient constructor to avoid the frequent pattern:
         Token(TokenType.X, TokenType.X.value, loc)"""
         return Token(token_type, token_type.value, loc)
+
+    @property
+    def id(self) -> str:
+        if self.token_type == TokenType.ID:
+            return self.lexeme
+        return self.token_type.value
 
 
 def group(*choices):
