@@ -53,6 +53,8 @@ class TokenType(Enum):
     EOF = "EOF"
     COMMENT = "#"
 
+    EMPTY = "ε"
+
     def __repr__(self):
         return self.name
 
@@ -286,7 +288,6 @@ class Tokenizer:
                     TokenType.WHITESPACE,
                     TokenType.NEWLINE,
                     TokenType.COMMENT,
-                    TokenType.EOF,
                 )
             )
         ]
