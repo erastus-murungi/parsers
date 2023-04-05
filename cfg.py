@@ -288,11 +288,10 @@ class CFG(dict[NonTerminal, Definition]):
             for A, definition in self.items():
                 for rule in definition:
                     for index, B in rule.enumerate_variables():
-                        beta = rule[index + 1 :]
-                        first_beta = self.first_sentential_form(beta)
+                        first_in_suffix = self.first_sentential_form(rule[index + 1 :])
                         initial_size = len(follow_set[B])
-                        follow_set[B] |= first_beta - {EMPTY}
-                        if EMPTY in first_beta:
+                        follow_set[B] |= first_in_suffix - {EMPTY}
+                        if EMPTY in first_in_suffix:
                             follow_set[B] |= follow_set[A]
                         if initial_size != len(follow_set[B]):
                             changed = True
@@ -301,21 +300,20 @@ class CFG(dict[NonTerminal, Definition]):
         return follow_set
 
     def build_ll1_parsing_table(self, cache_key="ll1_parsing_table") -> ParsingTable:
-        if (parsing_table := self.get_cached(cache_key)) is not None:
-            return parsing_table
+        if (cached := self.get_cached(cache_key)) is not None:
+            return cached
 
         follow_set = self.follow()
-
         parsing_table = ParsingTable(self._terminals)
 
-        for non_terminal, sentential_forms in self.items():
-            for sentential_form in sentential_forms:
-                for terminal in self.first_sentential_form(sentential_form):
+        for non_terminal, definition in self.items():
+            for rule in definition:
+                for terminal in self.first_sentential_form(rule):
                     if terminal is not EMPTY:
-                        parsing_table[(non_terminal, terminal.id)] = sentential_form
-                if EMPTY in self.first_sentential_form(sentential_form):
+                        parsing_table[(non_terminal, terminal.id)] = rule
+                if EMPTY in self.first_sentential_form(rule):
                     for terminal in follow_set[non_terminal]:
-                        parsing_table[(non_terminal, terminal.id)] = sentential_form
+                        parsing_table[(non_terminal, terminal.id)] = rule
 
         self.cache(cache_key, parsing_table)
         return parsing_table
