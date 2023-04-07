@@ -1,11 +1,16 @@
 from abc import ABC, abstractmethod
 from collections import deque
+from typing import cast
 
 from cfg import CFG
-from core import EOF, Rule
+from core import EMPTY, EOF, NonTerminal, Rule, Terminal
 from tokenizer import Tokenizer
 
 MAX_ITERATIONS = 1000_000
+
+
+class RecognizerError(Exception):
+    ...
 
 
 class Recognizer(ABC):
@@ -40,7 +45,10 @@ class BFSTopDownLeftmostRecognizer(Recognizer):
 
             n_iters += 1
 
-        return False
+        if n_iters >= MAX_ITERATIONS:
+            raise RecognizerError("Too many iterations")
+        else:
+            raise RecognizerError("No rules left to explore")
 
 
 class DFSTopDownLeftmostRecognizer(Recognizer):
@@ -69,4 +77,35 @@ class DFSTopDownLeftmostRecognizer(Recognizer):
 
             n_iters += 1
 
-        return False
+        if n_iters >= MAX_ITERATIONS:
+            raise RecognizerError("Too many iterations")
+        else:
+            raise RecognizerError("No rules left to explore")
+
+
+class LL1Recognizer(Recognizer):
+    def recognizes(self, tokens: list[Tokenizer.Token]) -> bool:
+        parsing_table = self.grammar.build_ll1_parsing_table()
+        stack, token_index = [EOF, self.grammar.start_symbol], 0
+
+        while stack:
+            symbol = stack.pop()
+            token = tokens[token_index]
+            if isinstance(symbol, Terminal):
+                if symbol.matches(token):
+                    token_index += symbol is not EMPTY
+                else:
+                    raise SyntaxError(f"Expected {symbol.id} but got {token}")
+            else:
+                non_terminal = cast(NonTerminal, symbol)
+                if (rule := parsing_table.get((non_terminal, token.id))) is not None:
+                    stack.extend(reversed(rule))
+                else:
+                    raise SyntaxError(
+                        f"At position {token.loc}, "
+                        f"was parsing {symbol!s} "
+                        f'expecting one of ({", ".join(terminal.id for terminal in self.grammar.first()[symbol])}), '
+                        f"but found {token.id!s}"
+                    )
+        assert token_index >= len(tokens)
+        return True

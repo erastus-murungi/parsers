@@ -231,33 +231,5 @@ class CFG(dict[NonTerminal, Definition]):
         self.cache(cache_key, parsing_table)
         return parsing_table
 
-    def match(self, tokens: Sequence[Tokenizer.Token]):
-        parsing_table = self.build_ll1_parsing_table()
-        stack, token_index = [EOF, self._start_symbol], 0
-        used_rules = []
-
-        while stack:
-            symbol = stack.pop()
-            token = tokens[token_index]
-            if isinstance(symbol, Terminal):
-                if symbol.matches(token):
-                    token_index += symbol is not EMPTY
-                else:
-                    raise SyntaxError(f"Expected {symbol.id} but got {token}")
-            else:
-                non_terminal = cast(NonTerminal, symbol)
-                if (rule := parsing_table.get((non_terminal, token.id))) is not None:
-                    stack.extend(reversed(rule))
-                    used_rules.append(ParseTableEntry(non_terminal, rule))
-                else:
-                    raise SyntaxError(
-                        f"At position {token.loc}, "
-                        f"was parsing {symbol!s} "
-                        f'expecting one of ({", ".join(terminal.id for terminal in self.first()[symbol])}), '
-                        f"but found {token.id!s}"
-                    )
-        assert token_index >= len(tokens)
-        return used_rules
-
     def __setitem__(self, key, value):
         raise Exception("Cannot modify grammar; use add_rule instead")
