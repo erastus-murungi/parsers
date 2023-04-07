@@ -26,6 +26,12 @@ class EarleyItem(NamedTuple):
             f"{' '.join(repr(sym) for sym in self.rule[self.dot:])}     ({self.start})"
         )
 
+    def advance(self):
+        return EarleyItem(self.name, self.dot + 1, self.start, self.rule)
+
+    def is_completed(self):
+        return self.dot >= len(self.rule)
+
 
 class EarleySet(list[EarleyItem]):
     def __init__(self, *items):
@@ -51,6 +57,8 @@ class EarleyRecognizer(Recognizer):
         assert len(tokens) > 0, "Cannot recognize an empty string"
         assert tokens[-1].token_type == "eof", "Last token must be EOF"
 
+        nullable_set = self.grammar.nullable()
+
         earley_sets = [EarleySet() for _ in range(len(tokens))]
         earley_sets[0].extend(
             EarleyItem(
@@ -62,44 +70,29 @@ class EarleyRecognizer(Recognizer):
             for rule in self.grammar[self.grammar.start_symbol]
         )
         for pos, (token, earley_set) in enumerate(zip(tokens, earley_sets)):
-            index = 0
-            while index < len(earley_set):
-                print_rich(pretty_repr(earley_sets))
-                name, dot, start, rule = earley_set[index]
-                # We have not completed yet, so we can predict or scan
+            current_pos = 0
+            while current_pos < len(earley_set):
+                name, dot, start, rule = earley_set[current_pos]
+
                 if dot < len(rule):
                     right = rule[dot]
                     if isinstance(right, NonTerminal):
-                        # We add the corresponding rules to the current state set.
+                        if right in nullable_set:
+                            earley_set.append(earley_set[current_pos].advance())
+
                         earley_set.extend(
                             EarleyItem(right, 0, pos, rule)
                             for rule in self.grammar[right]
                         )
-                    else:
-                        if pos + 1 < len(earley_sets) and right.matches(token):
-                            earley_sets[pos + 1].append(
-                                EarleyItem(
-                                    name,
-                                    dot + 1,
-                                    start,
-                                    rule,
-                                )
-                            )
+                    elif pos + 1 < len(earley_sets) and right.matches(token):
+                        earley_sets[pos + 1].append(earley_set[current_pos].advance())
                 else:
-                    # completion
                     for item in earley_sets[start]:
-                        if item.dot < len(item.rule):
-                            if item.rule[item.dot] == name:
-                                earley_set.append(
-                                    EarleyItem(
-                                        item.name,
-                                        item.dot + 1,
-                                        item.start,
-                                        item.rule,
-                                    )
-                                )
-                index += 1
+                        if not item.is_completed() and item.rule[item.dot] == name:
+                            earley_set.append(item.advance())
+                current_pos += 1
 
+        print_rich(pretty_repr(earley_sets))
         # are complete (the fat dot is at the end),
         # have started at the beginning (state set 0),
         # have the same name that has been chosen at the beginning ("Sum").
@@ -114,16 +107,25 @@ class EarleyRecognizer(Recognizer):
 if __name__ == "__main__":
     g = """
         <Program>
-        <Program>       ::= <Sum>
-        <Sum>           ::= <Sum> <PlusOrMinus> <Product> | <Product>
-        <Product>       ::= <Product> <MulOrDiv> <Factor> | <Factor>
-        <Factor>        ::= (<Sum>) | <Number>
-        <Number>        ::= integer 
-        <PlusOrMinus>   ::= + | -
-        <MulOrDiv>      ::= * | /
+        <Program>       -> <Sum>
+        <Sum>           -> <Sum> <PlusOrMinus> <Product> | <Product>
+        <Product>       -> <Product> <MulOrDiv> <Factor> | <Factor>
+        <Factor>        -> (<Sum>) | <Number>
+        <Number>        -> integer
+        <PlusOrMinus>   -> + | -
+        <MulOrDiv>      -> * | /
     """
 
     table = {"(": "(", ")": ")", "+": "+", "-": "-", "*": "*", "/": "/"}
+
+    # g = """
+    # <G>
+    # <G> -> <A>
+    # <A> -> <> | <B>
+    # <B> -> <A>
+    #
+    # """
+    # table = {}
 
     g = parse_grammar(g, table)
     print_rich(pretty_repr(g))

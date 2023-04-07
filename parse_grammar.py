@@ -5,6 +5,7 @@ from cfg import CFG
 from core import NonTerminal, Rule, Terminal
 
 NON_TERMINAL_REGEX: Final[str] = r"<([A-Z][\w\']*)>"
+SEPARATOR = r"->"
 
 
 def iter_symbol_tokens(input_str: str) -> Iterator[str]:
@@ -36,7 +37,7 @@ def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> CFG:
     cfg = CFG(start_symbol=NonTerminal(start_symbol_match.group(1)))
 
     for definition in definitions:
-        lhs_str, rhs_str = re.split(r"::=", definition)
+        lhs_str, rhs_str = re.split(SEPARATOR, definition)
 
         if (lhs_match := re.match(NON_TERMINAL_REGEX, lhs_str.strip())) is None:
             raise ValueError(
