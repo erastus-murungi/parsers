@@ -3,6 +3,7 @@ from rich.pretty import pretty_repr
 from rich.traceback import install
 
 from parse_grammar import parse_grammar
+from recognizers import BFSTopDownLeftmostRecognizer, DFSTopDownLeftmostRecognizer
 from tokenizer import Tokenizer
 
 install(show_locals=True)
@@ -75,8 +76,11 @@ if __name__ == "__main__":
     print_rich(pretty_repr(cfg))
     # rprint(pretty_repr(cfg.non_terminals))
 
-    tks = Tokenizer("(10 + 10)", tk_table).get_tokens_no_whitespace()
-    print_rich(pretty_repr(cfg.leftmost_top_down_parsing_dfs(tks)))
+    tks = Tokenizer("10 + 10", tk_table).get_tokens_no_whitespace()
+
+    assert BFSTopDownLeftmostRecognizer(cfg).recognizes(tks)
+    assert DFSTopDownLeftmostRecognizer(cfg).recognizes(tks)
+
     print_rich(pretty_repr(cfg.nullable()))
     print_rich(pretty_repr(cfg.first()))
     print_rich(pretty_repr(cfg.follow()))

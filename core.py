@@ -23,23 +23,18 @@ class Symbol(ABC):
         return self.id
 
     def __eq__(self, other):
-        if hasattr(other, "id"):
-            return self.id == other.id
-        return False
+        if not isinstance(other, Symbol):
+            raise NotImplemented
+        return self.id == other.id
 
 
 class Terminal(Symbol):
-    def __init__(
-        self, label: str, matching_function: Callable[[Tokenizer.Token], bool]
-    ):
+    def __init__(self, label: str, token_matcher: Callable[[Tokenizer.Token], bool]):
         super().__init__(label)
-        self.matching_function = matching_function
+        self._token_matcher = token_matcher
 
     def matches(self, token: Tokenizer.Token) -> bool:
-        return self.matching_function(token)
-
-    def __hash__(self):
-        return super().__hash__()
+        return self._token_matcher(token)
 
     def __repr__(self):
         return f"[bold blue]{self.id}[/bold blue]"
@@ -49,9 +44,6 @@ class Marker(Terminal):
     def __repr__(self):
         return f"[bold cyan]{self.id}[/bold cyan]"
 
-    def __str__(self):
-        return self.id
-
 
 EOF = Marker("eof", lambda token: token.token_type == "eof")
 EMPTY = Marker("ε", lambda token: True)
@@ -60,12 +52,6 @@ EMPTY = Marker("ε", lambda token: True)
 class NonTerminal(Symbol):
     def __repr__(self):
         return f"[bold red]<{self.id.capitalize()}>[/bold red]"
-
-    def __hash__(self):
-        return super().__hash__()
-
-    def __str__(self):
-        return self.id
 
 
 def all_terminals(symbols: Sequence[Symbol]) -> TypeGuard[Sequence[Terminal]]:
@@ -149,11 +135,6 @@ class Rule(list[Symbol]):
     def __repr__(self):
         return f'{"".join(repr(item) for item in super().__iter__())}'
 
-    def enumerate_terminals(self) -> Iterator[tuple[int, Terminal]]:
-        for index, symbol in enumerate(self):
-            if isinstance(symbol, Terminal):
-                yield index, symbol
-
 
 @dataclass(frozen=True)
 class ParseTableEntry:
@@ -179,11 +160,9 @@ class Node:
         return Node(self.form, index, entry), Node(replacement)
 
 
-ParseTreeSearchSpaceNode = tuple[tuple[Node, ...], Rule]
-
-
 FollowSet = defaultdict[Symbol, set[Terminal]]
 FirstSet = defaultdict[Symbol, set[Terminal]]
+NullableSet = set[Symbol]
 
 
 class Definition(list[Rule]):
@@ -196,7 +175,7 @@ class Definition(list[Rule]):
         return " | ".join(repr(item) for item in self)
 
 
-class ParsingTable(dict[tuple[NonTerminal, str], Rule]):
+class LL1ParsingTable(dict[tuple[NonTerminal, str], Rule]):
     def __init__(self, terminals: Iterable[Terminal]):
         super().__init__()
         self.terminals: tuple[Terminal, ...] = tuple(terminals)
@@ -204,17 +183,17 @@ class ParsingTable(dict[tuple[NonTerminal, str], Rule]):
     def __repr__(self):
         return f"{self.__class__.__name__}({super().__repr__()})"
 
-    def __str__(self):
+    def to_pretty_table(self) -> str:
         terminals: list[str] = ["<NT>"] + [terminal.id for terminal in self.terminals]
         pretty_table = PrettyTable()
         pretty_table.field_names = terminals
-        hashmap = defaultdict(dict)
+        hashmap: dict[NonTerminal, dict[str, Rule | str]] = defaultdict(dict)
 
-        for (non_terminal, terminal_id), pr in self.items():
-            hashmap[non_terminal][terminal_id] = pr
+        for (non_terminal, terminal_id), pt_entries in self.items():
+            hashmap[non_terminal][terminal_id] = pt_entries
 
         for non_terminal, terminal_id2_rule in hashmap.items():
-            row = [non_terminal]
+            row: list[Rule | str] = [str(non_terminal)]
             for terminal in self.terminals:
                 row.append(
                     terminal_id2_rule[terminal.id]
@@ -224,6 +203,9 @@ class ParsingTable(dict[tuple[NonTerminal, str], Rule]):
             pretty_table.add_row(row)
 
         return pretty_repr(pretty_table)
+
+    def __str__(self):
+        return self.to_pretty_table()
 
     def __getitem__(self, item: tuple[NonTerminal, str]) -> Rule:
         return super().__getitem__(item)

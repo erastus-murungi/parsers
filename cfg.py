@@ -1,5 +1,4 @@
-from collections import defaultdict, deque
-from functools import reduce
+from collections import defaultdict
 from typing import Optional, Sequence, cast
 
 from core import (
@@ -8,11 +7,10 @@ from core import (
     Definition,
     FirstSet,
     FollowSet,
-    Node,
+    LL1ParsingTable,
     NonTerminal,
+    NullableSet,
     ParseTableEntry,
-    ParseTreeSearchSpaceNode,
-    ParsingTable,
     Rule,
     Symbol,
     Terminal,
@@ -34,11 +32,15 @@ class CFG(dict[NonTerminal, Definition]):
         self._terminals: set[Terminal] = {EOF}
         self._current_time = 0
         self._caches: dict[
-            str, tuple[int, set[Symbol] | FollowSet | FirstSet | ParsingTable]
+            str, tuple[int, set[Symbol] | FollowSet | FirstSet | LL1ParsingTable]
         ] = {}
 
     def __len__(self):
         return super().__len__() - 1
+
+    @property
+    def start_symbol(self) -> NonTerminal:
+        return self._start_symbol
 
     @property
     def non_terminals(self) -> set[NonTerminal]:
@@ -91,97 +93,9 @@ class CFG(dict[NonTerminal, Definition]):
             f"{repr(rhs)} => {repr(definition)}" for rhs, definition in self.items()
         )
 
-    def leftmost_top_down_parsing_bfs(
-        self, tokens: list[Tokenizer.Token], max_iters: int = 1000_000
-    ):
-        """
-        Enormous time and memory usage:
-            ● Lots of wasted effort:
-                – Generates a lot of sentential forms that couldn't
-                    possibly match.
-                – But in general, extremely hard to tell whether a
-                    sentential replacement can match – that's the job of
-                    parsing!
-            ● High branching factor:
-                – Each sentential replacement can expand in (potentially)
-                many ways for each non-terminal it contains.
-        """
-
-        start = Rule((self._start_symbol,))
-        root: Node = Node(start)
-        rules: deque[ParseTreeSearchSpaceNode] = deque([((root,), start)])
-        seen: set[Rule] = set()
-        nullable_set: set[Symbol] = self.nullable()
-
-        n_iters = 0
-        while rules and n_iters < max_iters:
-            tree, rule = rules.popleft()
-
-            seen.add(rule)
-
-            if rule.matches(tokens):
-                return tree
-
-            for index, symbol in rule.enumerate_variables():
-                for replacement in self[symbol]:
-                    if (
-                        next_form := rule.perform_derivation(index, replacement)
-                    ).should_prune(tokens, seen, nullable_set):
-                        continue
-                    rules.append(
-                        (
-                            tree[:-1]
-                            + tree[-1].update(
-                                index, ParseTableEntry(symbol, replacement), next_form
-                            ),
-                            next_form,
-                        )
-                    )
-
-            n_iters += 1
-
-    def leftmost_top_down_parsing_dfs(
-        self, tokens: list[Tokenizer.Token], max_iters: int = 1000_000
-    ):
-        start = Rule((self._start_symbol,))
-        root = Node(start)
-        stack: list[ParseTreeSearchSpaceNode] = [((root,), start)]
-        seen = set()
-        nullable_set = self.nullable()
-
-        n_iters = 0
-        while stack and n_iters < max_iters:
-            tree, rule = stack.pop()
-
-            seen.add(rule)
-
-            if rule.matches(tokens):
-                return tree
-
-            next_in_stack = []
-
-            for index, symbol in rule.enumerate_variables():
-                for replacement in self[symbol]:
-                    if (
-                        next_form := rule.perform_derivation(index, replacement)
-                    ).should_prune(tokens, seen, nullable_set):
-                        continue
-
-                    next_in_stack.append(
-                        (
-                            tree[:-1]
-                            + tree[-1].update(
-                                index, ParseTableEntry(symbol, replacement), next_form
-                            ),
-                            next_form,
-                        )
-                    )
-            stack.extend(reversed(next_in_stack))
-            n_iters += 1
-
     def get_cached(
         self, function_name: str
-    ) -> Optional[set[Symbol] | FollowSet | FirstSet | ParsingTable]:
+    ) -> Optional[set[Symbol] | FollowSet | FirstSet | LL1ParsingTable]:
         if function_name not in self._caches:
             return None
         compute_time, cached = self._caches[function_name]
@@ -202,13 +116,13 @@ class CFG(dict[NonTerminal, Definition]):
             nullable_set = self.nullable()
         return all(sym in nullable_set for sym in sentential_form)
 
-    def nullable(self, cache_key="nullable") -> set[Symbol]:
+    def nullable(self, cache_key="nullable") -> NullableSet:
         """https://fileadmin.cs.lth.se/cs/Education/EDAN65/2020/lectures/L05A.pdf"""
 
         if (cached := self.get_cached(cache_key)) is not None:
             return cast(set[Symbol], cached)
 
-        nullable_set: set[Symbol] = {EMPTY}
+        nullable_set: NullableSet = {EMPTY}
 
         num_nullable = 0
         while True:
@@ -229,55 +143,54 @@ class CFG(dict[NonTerminal, Definition]):
     def first_sentential_form(
         self,
         sentential_form: Sequence[Symbol],
-        computing_first_set: Optional[dict[Symbol, set[Symbol]]] = None,
+        computing_first_set: Optional[FirstSet] = None,
         cache_key="first_sf",
     ) -> set[Terminal]:
-        if computing_first_set is None:
-            computing_first_set = self.first()
+        first_set: FirstSet = (
+            self.first() if computing_first_set is None else computing_first_set
+        )
 
         if not sentential_form:
             return {EMPTY}
 
         first_symbol, *rest = sentential_form
 
-        if first_symbol not in computing_first_set:
-            computing_first_set[first_symbol] = set()
+        if first_symbol not in first_set:
+            first_set[first_symbol] = set()
 
         return (
-            computing_first_set[first_symbol]
-            | self.first_sentential_form(rest, computing_first_set, cache_key)
+            first_set[first_symbol]
+            | self.first_sentential_form(rest, first_set, cache_key)
             if (first_symbol in self.nullable())
-            else computing_first_set[first_symbol]
+            else first_set[first_symbol]
         )
 
-    def first(self, cache_key="first") -> dict[Symbol, set[Terminal]]:
+    def first(self, cache_key="first") -> FirstSet:
         if (cached := self.get_cached(cache_key)) is not None:
             return cast(FirstSet, cached)
 
-        first_set = defaultdict(set)
+        first_set: FirstSet = defaultdict(set)
         first_set.update({terminal: {terminal} for terminal in self.terminals})
 
         changed = True
         while changed:
             changed = False
             for non_terminal, sentential_forms in self.items():
-                new_value = reduce(
-                    set.union,
-                    (
+                new_value = set.union(
+                    *(
                         self.first_sentential_form(sentential_form, first_set)
                         for sentential_form in sentential_forms
-                    ),
-                    set(),
+                    )
                 )
-                if new_value != first_set.get(non_terminal, None):
+                if new_value != first_set[non_terminal]:
                     first_set[non_terminal] = cast(set[Terminal], new_value)
                     changed = True
         self.cache(cache_key, first_set)
         return first_set
 
-    def follow(self, cache_key="follow"):
-        if (follow_set := self.get_cached(cache_key)) is not None:
-            return follow_set
+    def follow(self, cache_key="follow") -> FollowSet:
+        if (cached := self.get_cached(cache_key)) is not None:
+            return cast(FollowSet, cached)
 
         follow_set: FollowSet = defaultdict(set)
         follow_set[self._start_symbol] = {EOF}
@@ -299,12 +212,12 @@ class CFG(dict[NonTerminal, Definition]):
         self.cache(cache_key, follow_set)
         return follow_set
 
-    def build_ll1_parsing_table(self, cache_key="ll1_parsing_table") -> ParsingTable:
+    def build_ll1_parsing_table(self, cache_key="ll1_parsing_table") -> LL1ParsingTable:
         if (cached := self.get_cached(cache_key)) is not None:
-            return cached
+            return cast(LL1ParsingTable, cached)
 
         follow_set = self.follow()
-        parsing_table = ParsingTable(self._terminals)
+        parsing_table = LL1ParsingTable(self._terminals)
 
         for non_terminal, definition in self.items():
             for rule in definition:
@@ -332,10 +245,10 @@ class CFG(dict[NonTerminal, Definition]):
                 else:
                     raise SyntaxError(f"Expected {symbol.id} but got {token}")
             else:
-                symbol = cast(NonTerminal, symbol)
-                if (rule := parsing_table.get((symbol, token.id))) is not None:
+                non_terminal = cast(NonTerminal, symbol)
+                if (rule := parsing_table.get((non_terminal, token.id))) is not None:
                     stack.extend(reversed(rule))
-                    used_rules.append(ParseTableEntry(symbol, rule))
+                    used_rules.append(ParseTableEntry(non_terminal, rule))
                 else:
                     raise SyntaxError(
                         f"At position {token.loc}, "
