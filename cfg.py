@@ -65,11 +65,11 @@ class CFG(dict[NonTerminal, Definition]):
             )
 
         if rhs == self._start_symbol:
-            if rhs in self and len(self[rhs]) > 1:
+            if rhs in self and len(self[rhs]) > 0:
                 raise ValueError(
                     "you are not allowed to add a rule of the form "
-                    f"`<START> => rule1 | rule2 | rule3` because it is ambiguous"
-                    f"The start symbol should have only one production rule, terminated by an EOF token"
+                    f"`<START> => rule1 | rule2 | rule3` because it is ambiguous\n"
+                    f"The start symbol should have only one production rule, implicitly by an EOF token"
                 )
             else:
                 super().__setitem__(rhs, Definition([rule]))

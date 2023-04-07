@@ -1,7 +1,8 @@
 import itertools
 import re
+import warnings
 from dataclasses import dataclass
-from typing import Iterator, NamedTuple, Optional
+from typing import Iterator, NamedTuple, Optional, Tuple
 
 
 def group(*choices):
@@ -101,18 +102,20 @@ class Tokenizer:
         else:
             return lexeme, token_type
 
-    def _match_number_or_unknown(self, pos) -> Token:
+    def _match_number_or_unknown(self, pos) -> tuple[str, str] | Token:
         ret = (
             self._match_number(Imagnumber)
             or self._match_number(Floatnumber)
             or self._match_number(Intnumber)
         )
         if ret is None:
-            raise ValueError(f"no valid token found from position: {pos}")
-        else:
-            lexeme, ret_type = ret
-            self._skip_n_chars(len(lexeme) - 1)
-            return self.Token(ret_type, lexeme, pos)
+            # no token found
+            warnings.warn(f"unknown token at {pos}: {self._code[self._code_offset]}")
+            return self.Token(self._current_char(), self._current_char(), pos)
+
+        lexeme, ret_type = ret
+        self._skip_n_chars(len(lexeme) - 1)
+        return self.Token(ret_type, lexeme, pos)
 
     def _current_char(self):
         return self._code[self._code_offset]
