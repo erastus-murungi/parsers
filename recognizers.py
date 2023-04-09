@@ -4,6 +4,7 @@ from typing import cast
 
 from cfg import CFG
 from core import EMPTY, EOF, NonTerminal, Rule, Terminal
+from earley import gen_early_sets
 from tokenizer import Tokenizer
 
 MAX_ITERATIONS = 1000_000
@@ -109,3 +110,18 @@ class LL1Recognizer(Recognizer):
                     )
         assert token_index >= len(tokens)
         return True
+
+
+class EarleyRecognizer(Recognizer):
+    def recognizes(self, tokens: list[Tokenizer.Token]) -> bool:
+        earley_sets = gen_early_sets(self.grammar, tokens)
+        # are complete (the fat dot is at the end),
+        # have started at the beginning (state set 0),
+        # have the same name that has been chosen at the beginning ("Sum").
+
+        return any(
+            item.dot == len(item.rule)
+            and item.explicit_index == 0
+            and item.name == self.grammar.start_symbol
+            for item in earley_sets[-1]
+        )
