@@ -1,16 +1,16 @@
 from abc import ABC, abstractmethod
 from itertools import product
-from typing import Union, Iterator, NamedTuple, cast, TypedDict
+from typing import Iterator, NamedTuple, TypedDict, Union, cast
 
 from rich import print as print_rich
 from rich.pretty import pretty_repr
 from rich.traceback import install
 
 from cfg import CFG
-from core import NonTerminal, Terminal, EOF, EMPTY
-from earley import gen_early_sets, EarleyItem
+from core import EMPTY, EOF, NonTerminal, Terminal
+from earley import EarleyItem, gen_early_sets
 from parse_grammar import parse_grammar
-from tokenizer import Tokenizer
+from tokenizer import Token, Tokenizer
 
 install(show_locals=True)
 
@@ -22,12 +22,12 @@ class AST(TypedDict):
 
 class ParseTree(NamedTuple):
     id: NonTerminal
-    expansion: list[Union["ParseTree", Tokenizer.Token]]
+    expansion: list[Union["ParseTree", Token]]
 
     def collapse(self) -> AST:
         expansion = []
         for child in self.expansion:
-            if isinstance(child, Tokenizer.Token):
+            if isinstance(child, Token):
                 expansion.append(child.lexeme)
             else:
                 child_collapse = child.collapse()
@@ -42,7 +42,7 @@ class ParseTree(NamedTuple):
 
 class Parser(ABC):
     @abstractmethod
-    def parse(self, tokens: list[Tokenizer.Token]) -> Iterator[ParseTree]:
+    def parse(self, tokens: list[Token]) -> Iterator[ParseTree]:
         """Parse a list of tokens into a parse tree"""
         ...
 
@@ -51,7 +51,7 @@ class LL1Parser(Parser):
     def __init__(self, grammar: CFG):
         self.grammar = grammar
 
-    def parse(self, tokens: list[Tokenizer.Token]) -> Iterator[ParseTree]:
+    def parse(self, tokens: list[Token]) -> Iterator[ParseTree]:
         parsing_table = self.grammar.build_ll1_parsing_table()
         root = ParseTree(self.grammar.start_symbol, [])
         stack, token_index = [
@@ -90,7 +90,7 @@ class EarleyParser(Parser):
     def __init__(self, grammar: CFG):
         self.grammar = grammar
 
-    def parse(self, tokens: list[Tokenizer.Token]) -> Iterator[ParseTree]:
+    def parse(self, tokens: list[Token]) -> Iterator[ParseTree]:
         """Parse a list of tokens into a parse tree"""
 
         earley_sets = [
@@ -110,7 +110,7 @@ class EarleyParser(Parser):
                 parse_forest[start].append(EarleyItem(name, dot, end_index, rule))
 
         def yield_all_paths(
-            path: list[EarleyItem | Tokenizer.Token],
+            path: list[EarleyItem | Token],
             start_index: int,
             left,
             end_index: int,
@@ -147,7 +147,7 @@ class EarleyParser(Parser):
             for path in yield_all_paths([], start_index, earley_item.rule, end_index):
                 children_possibilities = []
                 for item in path:
-                    if isinstance(item, Tokenizer.Token):
+                    if isinstance(item, Token):
                         children_possibilities.append([item])
                         start_index += 1
                     else:

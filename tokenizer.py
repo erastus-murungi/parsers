@@ -31,6 +31,30 @@ Floatnumber = group(Pointfloat, Expfloat)
 Imagnumber = group(r"[0-9](?:_?[0-9])*[jJ]", Floatnumber + r"[jJ]")
 
 
+@dataclass
+class Token:
+    """
+    A token has three components:
+    1) Its type
+    2) A lexeme -- the substring of the source code it represents
+    3) The location in code of the lexeme
+    """
+
+    token_type: str
+    lexeme: str
+    loc: "Tokenizer.Loc"
+
+    @staticmethod
+    def from_token_type(token_type: str, loc: "Tokenizer.Loc"):
+        """A convenient constructor to avoid the frequent pattern:
+        Token(TokenType.X, TokenType.X.value, loc)"""
+        return Token(token_type, token_type, loc)
+
+    @property
+    def id(self) -> str:
+        return self.token_type
+
+
 class Tokenizer:
     class Loc(NamedTuple):
         filename: str
@@ -40,29 +64,6 @@ class Tokenizer:
 
         def __str__(self):
             return f"<{self.filename}:{self.line}:{self.col}>"
-
-    @dataclass
-    class Token:
-        """
-        A token has three components:
-        1) Its type
-        2) A lexeme -- the substring of the source code it represents
-        3) The location in code of the lexeme
-        """
-
-        token_type: str
-        lexeme: str
-        loc: "Tokenizer.Loc"
-
-        @staticmethod
-        def from_token_type(token_type: str, loc: "Tokenizer.Loc"):
-            """A convenient constructor to avoid the frequent pattern:
-            Token(TokenType.X, TokenType.X.value, loc)"""
-            return Tokenizer.Token(token_type, token_type, loc)
-
-        @property
-        def id(self) -> str:
-            return self.token_type
 
     def __init__(
         self, code: str, _named_tokens: dict[str, str], filename: str = "(void)"
@@ -109,11 +110,11 @@ class Tokenizer:
         )
         if ret is None:
             # no token found
-            return self.Token("char", self._current_char(), pos)
+            return Token("char", self._current_char(), pos)
 
         lexeme, ret_type = ret
         self._skip_n_chars(len(lexeme) - 1)
-        return self.Token(ret_type, lexeme, pos)
+        return Token(ret_type, lexeme, pos)
 
     def _current_char(self):
         return self._code[self._code_offset]
@@ -133,19 +134,17 @@ class Tokenizer:
                 if self._remaining_code().startswith(matching):
                     # this is a keyword
                     self._skip_n_chars(len(matching) - 1)
-                    token = self.Token(identifier, matching, token_location)
+                    token = Token(identifier, matching, token_location)
                     break
             else:
                 # we try to match whitespace while avoiding NEWLINES because we
                 # are using NEWLINES to split lines in our program
                 if self._current_char() != "\n" and self._current_char().isspace():
-                    token = self.Token(
-                        "whitespace", self._current_char(), token_location
-                    )
+                    token = Token("whitespace", self._current_char(), token_location)
                 elif self._current_char() == "#":
                     token = self.handle_comment()
                 elif self._current_char() == "\n":
-                    token = self.Token.from_token_type("newline", token_location)
+                    token = Token.from_token_type("newline", token_location)
                     self._linenum += 1
                     # we set column to -1 because it will be incremented to 0 after the token has been yielded
                     self._column = -1
@@ -156,7 +155,7 @@ class Tokenizer:
             self._to_next_char()
 
         # we must always end our stream of tokens with an EOF token
-        yield self.Token(
+        yield Token(
             "eof",
             "$",
             self.Loc(self._filename, self._linenum, self._column, self._code_offset),
@@ -167,7 +166,7 @@ class Tokenizer:
         if end_comment_pos == -1:
             raise ValueError()
         comment = self._remaining_code()[:end_comment_pos]
-        token = self.Token(
+        token = Token(
             "comment",
             comment,
             self.Loc(

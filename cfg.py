@@ -10,12 +10,10 @@ from core import (
     LL1ParsingTable,
     NonTerminal,
     NullableSet,
-    ParseTableEntry,
     Rule,
     Symbol,
     Terminal,
 )
-from tokenizer import Tokenizer
 
 
 class CFG(dict[NonTerminal, Definition]):

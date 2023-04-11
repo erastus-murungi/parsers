@@ -1,9 +1,9 @@
-from typing import NamedTuple, Iterable
+from typing import Iterable, NamedTuple
 
 from rich.traceback import install
 
 from core import NonTerminal, Rule
-from tokenizer import Tokenizer
+from tokenizer import Token
 
 install(show_locals=True)
 
@@ -49,7 +49,7 @@ class EarleySet(list[EarleyItem]):
         return EarleySet(*(item for item in self if item.is_completed()))
 
 
-def gen_early_sets(grammar, tokens: list[Tokenizer.Token]) -> list[EarleySet]:
+def gen_early_sets(grammar, tokens: list[Token]) -> list[EarleySet]:
     # initialize the recognizer; we have exactly one set for each token
     assert len(tokens) > 0, "Cannot recognize an empty string"
     assert tokens[-1].token_type == "eof", "Last token must be EOF"

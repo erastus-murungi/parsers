@@ -6,7 +6,7 @@ from typing import Callable, Iterable, Iterator, Optional, Sequence, TypeGuard, 
 from prettytable import PrettyTable
 from rich.pretty import pretty_repr
 
-from tokenizer import Tokenizer
+from tokenizer import Token
 
 
 class Symbol(ABC):
@@ -29,11 +29,11 @@ class Symbol(ABC):
 
 
 class Terminal(Symbol):
-    def __init__(self, label: str, token_matcher: Callable[[Tokenizer.Token], bool]):
+    def __init__(self, label: str, token_matcher: Callable[[Token], bool]):
         super().__init__(label)
         self._token_matcher = token_matcher
 
-    def matches(self, token: Tokenizer.Token) -> bool:
+    def matches(self, token: Token) -> bool:
         return self._token_matcher(token)
 
     def __repr__(self):
@@ -67,7 +67,7 @@ class Rule(list[Symbol]):
     def __iter__(self):
         yield from filter(lambda token: token is not EMPTY, super().__iter__())
 
-    def matches(self, tokens: Sequence[Tokenizer.Token]) -> bool:
+    def matches(self, tokens: Sequence[Token]) -> bool:
         if len(self) == len(tokens):
             if all_terminals(self):
                 return all(
@@ -90,7 +90,7 @@ class Rule(list[Symbol]):
 
     def should_prune(
         self,
-        tokens: Sequence[Tokenizer.Token],
+        tokens: Sequence[Token],
         seen: set["Rule"],
         nullable_set: set[Symbol],
     ) -> bool:

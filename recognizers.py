@@ -5,7 +5,7 @@ from typing import cast
 from cfg import CFG
 from core import EMPTY, EOF, NonTerminal, Rule, Terminal
 from earley import gen_early_sets
-from tokenizer import Tokenizer
+from tokenizer import Token
 
 MAX_ITERATIONS = 1000_000
 
@@ -19,12 +19,12 @@ class Recognizer(ABC):
         self.grammar = grammar
 
     @abstractmethod
-    def recognizes(self, tokens: list[Tokenizer.Token]) -> bool:
+    def recognizes(self, tokens: list[Token]) -> bool:
         ...
 
 
 class BFSTopDownLeftmostRecognizer(Recognizer):
-    def recognizes(self, tokens: list[Tokenizer.Token]) -> bool:
+    def recognizes(self, tokens: list[Token]) -> bool:
         rules: deque[Rule] = deque([Rule([self.grammar.start_symbol, EOF])])
         seen: set[Rule] = set()
         nullable_set = self.grammar.nullable()
@@ -53,7 +53,7 @@ class BFSTopDownLeftmostRecognizer(Recognizer):
 
 
 class DFSTopDownLeftmostRecognizer(Recognizer):
-    def recognizes(self, tokens: list[Tokenizer.Token]) -> bool:
+    def recognizes(self, tokens: list[Token]) -> bool:
         rules: list[Rule] = [Rule([self.grammar.start_symbol, EOF])]
         seen: set[Rule] = set()
         nullable_set = self.grammar.nullable()
@@ -85,7 +85,7 @@ class DFSTopDownLeftmostRecognizer(Recognizer):
 
 
 class LL1Recognizer(Recognizer):
-    def recognizes(self, tokens: list[Tokenizer.Token]) -> bool:
+    def recognizes(self, tokens: list[Token]) -> bool:
         parsing_table = self.grammar.build_ll1_parsing_table()
         stack, token_index = [EOF, self.grammar.start_symbol], 0
 
@@ -113,7 +113,7 @@ class LL1Recognizer(Recognizer):
 
 
 class EarleyRecognizer(Recognizer):
-    def recognizes(self, tokens: list[Tokenizer.Token]) -> bool:
+    def recognizes(self, tokens: list[Token]) -> bool:
         earley_sets = gen_early_sets(self.grammar, tokens)
         # are complete (the fat dot is at the end),
         # have started at the beginning (state set 0),
