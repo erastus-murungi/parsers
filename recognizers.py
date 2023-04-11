@@ -6,6 +6,7 @@ from cfg import CFG
 from core import EMPTY, EOF, NonTerminal, Rule, Terminal
 from earley import gen_early_sets
 from lr0 import Accept, Goto, LR0ParsingTable, Reduce, Shift, SLRParsingTable
+from lr1 import LR1ParsingTable
 from tokenizer import Token
 
 MAX_ITERATIONS = 1000_000
@@ -142,7 +143,7 @@ class LR0Recognizer(Recognizer):
                 # Advance input one token; push state n on stack.
                 case Shift(state):
                     stack.append(state)
-                    token_index += 1
+                    token_index += token.id != EOF.id
                 case Reduce(lhs, rule):
                     stack = stack[: -len(rule)]
                     match parsing_table[(stack[-1], lhs.id)]:
@@ -162,6 +163,11 @@ class LR0Recognizer(Recognizer):
 class SLRRecognizer(LR0Recognizer):
     def get_parsing_table(self):
         return SLRParsingTable(self.grammar)
+
+
+class LR1Recognizer(LR0Recognizer):
+    def get_parsing_table(self):
+        return LR1ParsingTable(self.grammar)
 
 
 if __name__ == "__main__":
@@ -226,5 +232,5 @@ if __name__ == "__main__":
     print_rich(pretty_repr(p.states))
     print_rich(pretty_repr(p))
 
-    p.draw_with_graphviz()
-    print_rich(pretty_repr(SLRRecognizer(cfg).recognizes(tks)))
+    # p.draw_with_graphviz()
+    print_rich(pretty_repr(LR1Recognizer(cfg).recognizes(tks)))

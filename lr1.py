@@ -122,7 +122,6 @@ class LR1ParsingTable(LRTable[LR1Item]):
                         self[(state_i, nt.id)] = Goto(I_j)
 
         self.states = items
-        print_rich(pretty_repr(items))
 
 
 if __name__ == "__main__":
