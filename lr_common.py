@@ -211,7 +211,7 @@ class LRTable(dict[tuple[State[T], str], Action], ABC):
                         f'[label="goto [{escape(edge_label)}]"];'
                     )
                     seen.add(state)
-                case Reduce(name, rule):
+                case Reduce(_, _):
                     pass
 
         graph.extend(edges)

@@ -3,11 +3,6 @@ from typing import NamedTuple
 from core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
 from lr_common import Accept, Goto, LRTable, Reduce, Shift, State
 
-FILENAME = "state_graph"
-DOT_FILEPATH = FILENAME + "." + "dot"
-GRAPH_TYPE = "pdf"
-OUTPUT_FILENAME = FILENAME + "." + GRAPH_TYPE
-
 
 class LR1Item(NamedTuple):
     name: NonTerminal
