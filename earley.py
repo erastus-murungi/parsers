@@ -2,7 +2,7 @@ from typing import Iterable, NamedTuple
 
 from rich.traceback import install
 
-from core import NonTerminal, Rule
+from core import NonTerminal, Rule, Terminal
 from tokenizer import Token
 
 install(show_locals=True)
@@ -73,15 +73,16 @@ def gen_early_sets(grammar, tokens: list[Token]) -> list[EarleySet]:
 
             if dot < len(rule):
                 right = rule[dot]
-                if isinstance(right, NonTerminal):
+                if isinstance(right, Terminal):
+                    if pos + 1 < len(earley_sets) and right.matches(token):
+                        earley_sets[pos + 1].append(earley_set[current_pos].advance())
+                else:
                     if right in nullable_set:
                         earley_set.append(earley_set[current_pos].advance())
 
                     earley_set.extend(
                         EarleyItem(right, 0, pos, rule) for rule in grammar[right]
                     )
-                elif pos + 1 < len(earley_sets) and right.matches(token):
-                    earley_sets[pos + 1].append(earley_set[current_pos].advance())
             else:
                 for item in earley_sets[start]:
                     if not item.is_completed() and item.rule[item.dot] == name:

@@ -7,7 +7,7 @@ from rich.pretty import pretty_repr
 from rich.traceback import install
 
 from cfg import CFG
-from core import EMPTY, EOF, NonTerminal, Terminal
+from core import EMPTY, EOF, NonTerminal, Terminal, Symbol
 from earley import EarleyItem, gen_early_sets
 from parse_grammar import parse_grammar
 from tokenizer import Token, Tokenizer
@@ -21,7 +21,7 @@ class AST(TypedDict):
 
 
 class ParseTree(NamedTuple):
-    id: NonTerminal
+    id: Symbol
     expansion: list[Union["ParseTree", Token]]
 
     def collapse(self) -> AST:
@@ -152,9 +152,9 @@ class EarleyParser(Parser):
                         start_index += 1
                     else:
                         children_possibilities.append(
-                            list(build_tree(item, start_index, item.explicit_index))
+                            list(build_tree(item, start_index, item.position))
                         )
-                        start_index = item.explicit_index
+                        start_index = item.position
                 for children in product(*children_possibilities):
                     yield ParseTree(earley_item.name, children)
 
@@ -201,39 +201,39 @@ if __name__ == "__main__":
         "\\W": "not_word",
     }
 
-    # g = """
-    #     <S>
-    #     <S> -> <MaybeOpeningAnchor><Expr><MaybeClosingAnchor>
-    #     <Expr> -> <Expr> or_literal <Term> | <Term>
-    #     <Term> -> <Factor> <Term> | <Factor>
-    #     <Factor> -> <Atom> <Quantifier> | <Atom>
-    #     <Atom> -> <Char> | <Group>
-    #     <Char> -> <Literal> | <Metachar>
-    #     <Quantifier> -> * | + | ? | { integer } | { integer , } | { integer , integer } | { , integer }
-    #     <Literal> -> char
-    #     <Metachar> -> . | <CharacterClass>
-    #     <Group> -> (<MaybeCapture> <Expr> )
-    #     <MaybeCapture> -> ?: |
-    #     <MaybeOpeningAnchor> -> ^ |
-    #     <MaybeClosingAnchor> -> $ |
-    #
-    #     <CharacterClass> -> \\d | \\D | \\s | \\S | \\w | \\W
-    #
-    # """
-    table = {
-        "(": "(",
-        ")": ")",
-        "+": "+",
-        "*": "*",
-    }
-
     g = """
-         <S>
-         <S> -> <E>
-         <E> -> integer
-         <E> -> (<E> <Op> <E>)
-         <Op> -> + | *
+        <S>
+        <S> -> <MaybeOpeningAnchor><Expr><MaybeClosingAnchor>
+        <Expr> -> <Expr> or_literal <Term> | <Term>
+        <Term> -> <Factor> <Term> | <Factor>
+        <Factor> -> <Atom> <Quantifier> | <Atom>
+        <Atom> -> <Char> | <Group>
+        <Char> -> <Literal> | <Metachar>
+        <Quantifier> -> * | + | ? | { integer } | { integer , } | { integer , integer } | { , integer }
+        <Literal> -> char
+        <Metachar> -> . | <CharacterClass>
+        <Group> -> (<MaybeCapture> <Expr> )
+        <MaybeCapture> -> ?: |
+        <MaybeOpeningAnchor> -> ^ |
+        <MaybeClosingAnchor> -> $ |
+
+        <CharacterClass> -> \\d | \\D | \\s | \\S | \\w | \\W
+
     """
+    # table = {
+    #     "(": "(",
+    #     ")": ")",
+    #     "+": "+",
+    #     "*": "*",
+    # }
+    #
+    # g = """
+    #      <S>
+    #      <S> -> <E>
+    #      <E> -> integer
+    #      <E> -> (<E> <Op> <E>)
+    #      <Op> -> + | *
+    # """
 
     # g = """
     # <G>
@@ -244,12 +244,12 @@ if __name__ == "__main__":
     # """
     # table = {}
 
-    g = parse_grammar(g, table)
-    print_rich(pretty_repr(g))
+    cfg = parse_grammar(g, table)
+    print_rich(pretty_repr(cfg))
     #
-    # tks = Tokenizer("^a+(?:ab)c{1,3}$", table).get_tokens_no_whitespace()
-    tks = Tokenizer("(1 + 1)", table).get_tokens_no_whitespace()
+    tks = Tokenizer("^a+(?:ab)c{1,3}$", table).get_tokens_no_whitespace()
+    # tks = Tokenizer("(1 + 1)", table).get_tokens_no_whitespace()
     print_rich(pretty_repr(tks))
 
-    earley_parser = LL1Parser(g)
+    earley_parser = EarleyParser(cfg)
     list(earley_parser.parse(tks))

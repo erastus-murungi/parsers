@@ -5,6 +5,7 @@ from typing import cast
 from cfg import CFG
 from core import EMPTY, EOF, NonTerminal, Rule, Terminal
 from earley import gen_early_sets
+from lr import LR0ParsingTable, Shift, Reduce, Goto, Accept
 from tokenizer import Token
 
 MAX_ITERATIONS = 1000_000
@@ -125,3 +126,77 @@ class EarleyRecognizer(Recognizer):
             and item.name == self.grammar.start_symbol
             for item in earley_sets[-1]
         )
+
+
+class LR0Recognizer(Recognizer):
+    def recognizes(self, tokens: list[Token]) -> bool:
+        lr0_parsing_table = LR0ParsingTable(self.grammar)
+        stack, token_index = [lr0_parsing_table.states[0]], 0
+        while stack:
+            state = stack[-1]
+            token = tokens[token_index]
+            match lr0_parsing_table.get((state, token.id)):
+                # Advance input one token; push state n on stack.
+                case Shift(state):
+                    stack.append(state)
+                    token_index += 1
+                case Reduce(lhs, rule):
+                    n_symbols = len(rule)
+                    stack = stack[:-n_symbols]
+                    match lr0_parsing_table[(stack[-1], lhs.id)]:
+                        case Goto(state):
+                            stack.append(state)
+                        case _:
+                            raise SyntaxError(f"Unexpected {token.id} at {token.loc}")
+                case Accept():
+                    return True
+                case _:
+                    raise SyntaxError(f"Unexpected {token.id} at {token.loc}")
+        raise SyntaxError(
+            f"Syntax error at {tokens[token_index] if token_index < len(tokens) else EOF}"
+        )
+
+
+if __name__ == "__main__":
+    from rich import print as print_rich
+    from rich.pretty import pretty_repr
+    from parse_grammar import parse_grammar
+    from tokenizer import Tokenizer
+
+    # table = {
+    #     "x": "x",
+    #     "(": "(",
+    #     ")": ")",
+    #     ",": ",",
+    # }
+    # g = """
+    #         <S'>
+    #         <S'> -> <S>
+    #         <S> -> (<L>)
+    #         <L> -> <S>
+    #         <S> -> x
+    #         <L> -> <L>,<S>
+    # """
+    table = {
+        "+": "+",
+        ";": ";",
+        "(": "(",
+        ")": ")",
+    }
+
+    g = """
+        <S>
+        <S> -> <E>
+        <E> -> <T>; | <T> + <E>
+        <T> -> (<E>) | integer
+    """
+    tks = Tokenizer("1 + (2 + 3;);", table).get_tokens_no_whitespace()
+
+    cfg = parse_grammar(g, table)
+    print_rich(pretty_repr(cfg))
+    p = LR0ParsingTable(cfg)
+    print_rich(pretty_repr(p.states))
+    print_rich(pretty_repr(p))
+
+    # p.draw_with_graphviz()
+    print_rich(pretty_repr(LR0Recognizer(cfg).recognizes(tks)))

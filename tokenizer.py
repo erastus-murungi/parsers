@@ -102,7 +102,7 @@ class Tokenizer:
         else:
             return lexeme, token_type
 
-    def _match_number_or_unknown(self, pos) -> tuple[str, str] | Token:
+    def _match_number_or_unknown(self, pos) -> Token:
         ret = (
             self._match_number(Imagnumber)
             or self._match_number(Floatnumber)
