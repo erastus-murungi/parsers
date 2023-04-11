@@ -188,7 +188,9 @@ class LRTable(dict[tuple[State[T], str], Action], ABC):
             seen.add(start)
             match action:
                 case Accept():
-                    pass
+                    edges.append(
+                        f'    {hash(str(start))}:from_false -> accept:from_node [arrowhead=vee] [label="$"] '
+                    )
                 case Shift(state):
                     if state not in seen:
                         nodes.append(
