@@ -66,6 +66,14 @@ class LR0State(list[LR0Item]):
     def __hash__(self):
         return hash(tuple(self))
 
+    def __str__(self):
+        return "\n".join(
+            f"{item.name!s} -> {' '.join(str(sym) for sym in item.rule[:item.dot])}"
+            f" . "
+            f"{' '.join(str(sym) for sym in item.rule[item.dot:])}"
+            for item in self
+        )
+
 
 class Action(ABC):
     pass
@@ -76,10 +84,16 @@ class Reduce(Action):
     lhs: NonTerminal
     rule: Rule
 
+    def __str(self):
+        return f"Reduce({self.lhs!s} -> {' '.join(str(sym) for sym in self.rule)})"
+
 
 @dataclass(frozen=True, slots=True)
 class Goto(Action):
     state: LR0State
+
+    def __str__(self):
+        return f"Goto({self.state!s})"
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +104,9 @@ class Accept(Action):
 @dataclass(frozen=True, slots=True)
 class Shift(Action):
     state: LR0State
+
+    def __str__(self):
+        return f"Shift(\n{self.state!s}\n)"
 
 
 class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
@@ -176,11 +193,14 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
         for state in states:
             for item in state.yield_finished():
                 for symbol in self.grammar.terminals:
-                    if (state, symbol) not in self:
+                    if (state, symbol.id) not in self:
                         self[(state, symbol.id)] = Reduce(item.name, item.rule)
                     else:
                         raise ValueError(
-                            f"Encountered reduce/reduce conflict {state!s} {symbol!s}"
+                            f"Encountered shift/reduce conflict on \n"
+                            f" state: {str(state)}\n and symbol: {symbol.id}\n"
+                            f"  {self[(state, symbol.id)]} and \n"
+                            f"  Reduce({item.name!s} -> {item.rule!s})"
                         )
         self.states = list(states)
 
@@ -234,16 +254,6 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
             subprocess.run(["open", output_filepath])
             subprocess.run(["rm", AST_DOT_FILEPATH])
 
-        def str_state(state: LR0State):
-            return escape(
-                "\n".join(
-                    f"{item.name!s} -> {' '.join(str(sym) for sym in item.rule[:item.dot])}"
-                    f" . "
-                    f"{' '.join(str(sym) for sym in item.rule[item.dot:])}"
-                    for item in state
-                )
-            )
-
         graph = [graph_prologue()]
         edges = []
         nodes = []
@@ -252,7 +262,7 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
             if start not in seen:
                 nodes.append(
                     f"   {hash(str(start))} [shape=record, style=filled, fillcolor=black, "
-                    f'fontcolor=white, label="{str_state(start)}"];'
+                    f'fontcolor=white, label="{str(start)}"];'
                 )
             seen.add(start)
             match action:
@@ -262,7 +272,7 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
                     if state not in seen:
                         nodes.append(
                             f"   {hash(str(state))} [shape=record, style=filled, "
-                            f'fillcolor=black, fontcolor=white, label="{str_state(state)}"];'
+                            f'fillcolor=black, fontcolor=white, label="{str(state)}"];'
                         )
                     edges.append(
                         f"    {hash(str(start))}:from_false -> {hash(str(state))}:from_node "
@@ -273,7 +283,7 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
                     if state not in seen:
                         nodes.append(
                             f"   {hash(str(state))} [shape=record, style=filled, "
-                            f'fillcolor=black, fontcolor=white, label="{str_state(state)}"];'
+                            f'fillcolor=black, fontcolor=white, label="{str(state)}"];'
                         )
                     edges.append(
                         f"    {hash(str(start))}:from_false -> {hash(str(state))}:from_node "

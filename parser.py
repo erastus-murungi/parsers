@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from itertools import product
-from typing import Iterator, NamedTuple, TypedDict, Union, cast
+from typing import Iterator, NamedTuple, TypedDict, Union, cast, Required
 
 from rich import print as print_rich
 from rich.pretty import pretty_repr
@@ -16,8 +16,8 @@ install(show_locals=True)
 
 
 class AST(TypedDict):
-    id: str
-    expansion: list["AST"]
+    id: Required[str]
+    expansion: Required[list["AST"]]
 
 
 class ParseTree(NamedTuple):
@@ -98,10 +98,6 @@ class EarleyParser(Parser):
             for earley_set in gen_early_sets(self.grammar, tokens)
         ]
 
-        print_rich(
-            pretty_repr({pos: earley_set for pos, earley_set in enumerate(earley_sets)})
-        )
-
         # reverse the earley sets
         parse_forest: list[list[EarleyItem]] = [[] for _ in range(len(tokens))]
         for end_index, earley_set in enumerate(earley_sets):
@@ -113,11 +109,11 @@ class EarleyParser(Parser):
             path: list[EarleyItem | Token],
             start_index: int,
             left,
-            end_index: int,
+            path_end_index: int,
         ) -> list[EarleyItem]:
             # if we are at a leaf
             if not left:
-                if end_index == start_index:
+                if path_end_index == start_index:
                     yield path
             else:
                 current_symbol, *left = left
@@ -128,7 +124,7 @@ class EarleyParser(Parser):
                             path + [current_token],
                             start_index + 1,
                             left,
-                            end_index,
+                            path_end_index,
                         )
                 else:
                     for next_item in parse_forest[start_index]:
@@ -137,26 +133,32 @@ class EarleyParser(Parser):
                                 path + [next_item],
                                 next_item.explicit_index,
                                 left,
-                                end_index,
+                                path_end_index,
                             )
 
         def build_tree(
-            earley_item: EarleyItem, start_index: int, end_index: int
+            path_root: EarleyItem, path_start_index: int, path_end_index: int
         ) -> Iterator[ParseTree]:
             # yield all the trees from the children
-            for path in yield_all_paths([], start_index, earley_item.rule, end_index):
-                children_possibilities = []
+            for path in yield_all_paths(
+                [], path_start_index, path_root.rule, path_end_index
+            ):
+                item_start_index = path_start_index
+                children_possibilities: list[list[Token | ParseTree]] = []
                 for item in path:
                     if isinstance(item, Token):
                         children_possibilities.append([item])
-                        start_index += 1
+                        item_start_index += 1
                     else:
                         children_possibilities.append(
-                            list(build_tree(item, start_index, item.position))
+                            list(
+                                build_tree(item, item_start_index, item.explicit_index)
+                            )
                         )
-                        start_index = item.position
+                        item_start_index = item.explicit_index
                 for children in product(*children_possibilities):
-                    yield ParseTree(earley_item.name, children)
+                    assert len(children) == len(path_root.rule)
+                    yield ParseTree(path_root.name, children)
 
         n_tokens = len(tokens) - 1  # ignore EOF
         for earley_item in parse_forest[0]:
@@ -165,7 +167,6 @@ class EarleyParser(Parser):
                 and earley_item.name == self.grammar.start_symbol
             ):
                 for tree in build_tree(earley_item, 0, n_tokens):
-                    print_rich(pretty_repr(tree.collapse()))
                     yield tree
 
 
@@ -221,6 +222,19 @@ if __name__ == "__main__":
 
     """
     # table = {
+    #     "+": "+",
+    #     "-": "-",
+    #     "*": "*",
+    #     "a": "a",
+    # }
+    #
+    # g = """
+    #     <S>
+    #     <S> -> <A>
+    #     <A> -> <A> + <A> | <A> − <A> | a
+    # """
+
+    # table = {
     #     "(": "(",
     #     ")": ")",
     #     "+": "+",
@@ -246,6 +260,8 @@ if __name__ == "__main__":
 
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
+
+    # tks = Tokenizer("a + a − a", table).get_tokens_no_whitespace()
     #
     tks = Tokenizer("^a+(?:ab)c{1,3}$", table).get_tokens_no_whitespace()
     # tks = Tokenizer("(1 + 1)", table).get_tokens_no_whitespace()
