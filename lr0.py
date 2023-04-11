@@ -1,15 +1,7 @@
-import subprocess
-import sys
 from typing import NamedTuple
 
-from cfg import CFG
 from core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
-from lr_common import Accept, Action, Goto, Reduce, Shift, State
-
-FILENAME = "state_graph"
-DOT_FILEPATH = FILENAME + "." + "dot"
-GRAPH_TYPE = "pdf"
-OUTPUT_FILENAME = FILENAME + "." + GRAPH_TYPE
+from lr_common import Accept, Goto, LRTable, Reduce, Shift, State
 
 
 class LR0Item(NamedTuple):
@@ -24,6 +16,13 @@ class LR0Item(NamedTuple):
             f"{' '.join(repr(sym) for sym in self.rule[self.dot:])}"
         )
 
+    def __str__(self):
+        return (
+            f"{self.name!s} -> {' '.join(str(sym) for sym in self.rule[:self.dot])}"
+            f" . "
+            f"{' '.join(str(sym) for sym in self.rule[self.dot:])}"
+        )
+
     def advance(self):
         return LR0Item(self.name, self.dot + 1, self.rule)
 
@@ -31,13 +30,7 @@ class LR0Item(NamedTuple):
         return self.dot >= len(self.rule)
 
 
-class LR0ParsingTable(dict[tuple[State[LR0Item], str], Action]):
-    def __init__(self, grammar: CFG):
-        super().__init__()
-        self.grammar = grammar
-        self.states: list[State[LR0Item]] = []
-        self.construct()
-
+class LR0ParsingTable(LRTable[LR0Item]):
     def closure(self, state: State[LR0Item]):
         # Closure adds more items to a set of items when
         # there is a dot to the left of a non-terminal;
@@ -72,7 +65,7 @@ class LR0ParsingTable(dict[tuple[State[LR0Item], str], Action]):
                 kernel.append(item.advance())
         return self.closure(kernel)
 
-    def get_initial_kernel(self):
+    def init_kernel(self):
         return State[LR0Item](
             LR0Item(
                 self.grammar.start_symbol,
@@ -97,7 +90,7 @@ class LR0ParsingTable(dict[tuple[State[LR0Item], str], Action]):
                         )
 
     def construct(self):
-        states = {self.closure(self.get_initial_kernel()): None}
+        states = {self.closure(self.init_kernel()): None}
         changing = True
 
         while changing:
@@ -126,108 +119,6 @@ class LR0ParsingTable(dict[tuple[State[LR0Item], str], Action]):
 
         self.states = list(states)
         self.compute_reduce_actions()
-
-    def draw_with_graphviz(self):
-        def graph_prologue():
-            return (
-                'digraph G {  graph [fontname = "Courier New", engine="sfdp"];\n'
-                + ' node [fontname = "Courier", style = rounded];\n'
-                + ' edge [fontname = "Courier"];'
-            )
-
-        def graph_epilogue():
-            return "}"
-
-        def escape(s: str):
-            return (
-                s.replace("\\", "\\\\")
-                .replace("\t", "\\t")
-                .replace("\b", "\\b")
-                .replace("\r", "\\r")
-                .replace("\f", "\\f")
-                .replace("'", "\\'")
-                .replace('"', '\\"')
-                .replace("<", "\\<")
-                .replace(">", "\\>")
-                .replace("\n", "\\l")
-                .replace("||", "\\|\\|")
-                .replace("[", "\\[")
-                .replace("]", "\\]")
-                .replace("{", "\\{")
-                .replace("}", "\\}")
-            )
-
-        def create_graph_pdf(
-            dot_filepath=DOT_FILEPATH,
-            output_filepath=OUTPUT_FILENAME,
-            output_filetype=GRAPH_TYPE,
-        ):
-            dot_exec_filepath = (
-                "/usr/local/bin/dot" if sys.platform == "darwin" else "/usr/bin/dot"
-            )
-            args = [
-                dot_exec_filepath,
-                f"-T{output_filetype}",
-                f"-Gdpi={96}",
-                dot_filepath,
-                "-o",
-                output_filepath,
-            ]
-            subprocess.run(args)
-            subprocess.run(["open", output_filepath])
-            subprocess.run(["rm", DOT_FILEPATH])
-
-        graph = [graph_prologue()]
-        edges = []
-        nodes = []
-        seen = set()
-
-        edges.append(
-            f"    start:from_false -> {hash(str(self.states[0]))}:from_node [arrowhead=vee] "
-        )
-        for (start, edge_label), action in self.items():
-            if start not in seen:
-                nodes.append(
-                    f"   {hash(str(start))} [shape=record, style=filled, fillcolor=black, "
-                    f'fontcolor=white, label="{escape(str(start))}"];'
-                )
-            seen.add(start)
-            match action:
-                case Accept():
-                    pass
-                case Shift(state):
-                    if state not in seen:
-                        nodes.append(
-                            f"   {hash(str(state))} [shape=record, style=filled, "
-                            f'fillcolor=black, fontcolor=white, label="{escape(str(state))}"];'
-                        )
-                    edges.append(
-                        f"    {hash(str(start))}:from_false -> {hash(str(state))}:from_node "
-                        f'[label="shift [{escape(edge_label)}]"];'
-                    )
-                    seen.add(state)
-                case Goto(state):
-                    if state not in seen:
-                        nodes.append(
-                            f"   {hash(str(state))} [shape=record, style=filled, "
-                            f'fillcolor=black, fontcolor=white, label="{escape(str(state))}"];'
-                        )
-                    edges.append(
-                        f"    {hash(str(start))}:from_false -> {hash(str(state))}:from_node "
-                        f'[label="goto [{escape(edge_label)}]"];'
-                    )
-                    seen.add(state)
-                case Reduce(name, rule):
-                    pass
-
-        graph.extend(edges)
-        graph.extend(nodes)
-        graph.append(graph_epilogue())
-
-        with open(DOT_FILEPATH, "w") as f:
-            f.write("\n".join(graph))
-
-        create_graph_pdf()
 
 
 class SLRParsingTable(LR0ParsingTable):
@@ -272,3 +163,5 @@ if __name__ == "__main__":
     print_rich(pretty_repr(cfg))
 
     print_rich(pretty_repr(LR0ParsingTable(cfg)))
+
+    SLRParsingTable(cfg).draw_with_graphviz()

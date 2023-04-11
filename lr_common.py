@@ -1,8 +1,15 @@
-from abc import ABC
+import subprocess
+import sys
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Hashable, Iterable, Protocol, TypeVar, runtime_checkable
 
-from core import NonTerminal, Rule
+from core import NonTerminal, Rule, Symbol
+
+FILENAME = "state_graph"
+DOT_FILEPATH = FILENAME + "." + "dot"
+GRAPH_TYPE = "pdf"
+OUTPUT_FILENAME = FILENAME + "." + GRAPH_TYPE
 
 
 @runtime_checkable
@@ -85,3 +92,133 @@ class Shift(Action):
 
     def __str__(self):
         return f"Shift(\n{self.state!s}\n)"
+
+
+class LRTable(dict[tuple[State[T], str], Action], ABC):
+    def __init__(self, grammar):
+        super().__init__()
+        self.grammar = grammar
+        self.states: list[State[T]] = []
+        self.construct()
+
+    @abstractmethod
+    def closure(self, state: State[T]):
+        pass
+
+    @abstractmethod
+    def goto(self, state: State[T], sym: Symbol) -> State[T]:
+        pass
+
+    @abstractmethod
+    def init_kernel(self) -> State[T]:
+        pass
+
+    @abstractmethod
+    def compute_reduce_actions(self):
+        pass
+
+    @abstractmethod
+    def construct(self):
+        pass
+
+    def draw_with_graphviz(self):
+        def graph_prologue():
+            return (
+                'digraph G {  graph [fontname = "Courier New", engine="sfdp"];\n'
+                + ' node [fontname = "Courier", style = rounded];\n'
+                + ' edge [fontname = "Courier"];'
+            )
+
+        def graph_epilogue():
+            return "}"
+
+        def escape(s: str):
+            return (
+                s.replace("\\", "\\\\")
+                .replace("\t", "\\t")
+                .replace("\b", "\\b")
+                .replace("\r", "\\r")
+                .replace("\f", "\\f")
+                .replace("'", "\\'")
+                .replace('"', '\\"')
+                .replace("<", "\\<")
+                .replace(">", "\\>")
+                .replace("\n", "\\l")
+                .replace("||", "\\|\\|")
+                .replace("[", "\\[")
+                .replace("]", "\\]")
+                .replace("{", "\\{")
+                .replace("}", "\\}")
+            )
+
+        def create_graph_pdf(
+            dot_filepath=DOT_FILEPATH,
+            output_filepath=OUTPUT_FILENAME,
+            output_filetype=GRAPH_TYPE,
+        ):
+            dot_exec_filepath = (
+                "/usr/local/bin/dot" if sys.platform == "darwin" else "/usr/bin/dot"
+            )
+            args = [
+                dot_exec_filepath,
+                f"-T{output_filetype}",
+                f"-Gdpi={96}",
+                dot_filepath,
+                "-o",
+                output_filepath,
+            ]
+            subprocess.run(args)
+            subprocess.run(["open", output_filepath])
+            subprocess.run(["rm", DOT_FILEPATH])
+
+        graph = [graph_prologue()]
+        edges = []
+        nodes = []
+        seen = set()
+
+        edges.append(
+            f"    start:from_false -> {hash(str(self.states[0]))}:from_node [arrowhead=vee] "
+        )
+        for (start, edge_label), action in self.items():
+            if start not in seen:
+                nodes.append(
+                    f"   {hash(str(start))} [shape=record, style=filled, fillcolor=black, "
+                    f'fontcolor=white, label="{escape(str(start))}"];'
+                )
+            seen.add(start)
+            match action:
+                case Accept():
+                    pass
+                case Shift(state):
+                    if state not in seen:
+                        nodes.append(
+                            f"   {hash(str(state))} [shape=record, style=filled, "
+                            f'fillcolor=black, fontcolor=white, label="{escape(str(state))}"];'
+                        )
+                    edges.append(
+                        f"    {hash(str(start))}:from_false -> {hash(str(state))}:from_node "
+                        f'[label="shift [{escape(edge_label)}]"];'
+                    )
+                    seen.add(state)
+                case Goto(state):
+                    if state not in seen:
+                        nodes.append(
+                            f"   {hash(str(state))} [shape=record, style=filled, "
+                            f'fillcolor=black, fontcolor=white, label="{escape(str(state))}"];'
+                        )
+                    edges.append(
+                        f"    {hash(str(start))}:from_false -> {hash(str(state))}:from_node "
+                        f'[label="goto [{escape(edge_label)}]"];'
+                    )
+                    seen.add(state)
+                case Reduce(name, rule):
+                    pass
+
+        graph.extend(edges)
+        graph.extend(nodes)
+        graph.append(graph_epilogue())
+
+        with open(DOT_FILEPATH, "w") as f:
+            f.write("\n".join(graph))
+
+        create_graph_pdf()
