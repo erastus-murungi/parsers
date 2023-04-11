@@ -4,7 +4,7 @@ from typing import Final, Iterator
 from cfg import CFG
 from core import NonTerminal, Rule, Terminal
 
-NON_TERMINAL_REGEX: Final[str] = r"<([A-Z][\w\']*)>"
+NON_TERMINAL_REGEX: Final[str] = r"<([\w\']+)>"
 SEPARATOR = r"->"
 
 
@@ -37,6 +37,9 @@ def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> CFG:
     cfg = CFG(start_symbol=NonTerminal(start_symbol_match.group(1)))
 
     for definition in definitions:
+        if not definition.strip():
+            continue
+
         lhs_str, rhs_str = re.split(SEPARATOR, definition)
 
         if (lhs_match := re.match(NON_TERMINAL_REGEX, lhs_str.strip())) is None:
@@ -52,10 +55,13 @@ def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> CFG:
             for lexeme in iter_symbol_tokens(rule_str):
                 if lexeme == "<>":
                     break
+                elif lexeme.startswith(r"\\"):
+                    # this is a terminal
+                    rule.append(Terminal(lexeme[1:], bind_lexeme(lexeme[1:])))
                 elif lexeme.startswith("<"):
                     # this is a non-terminal
                     rule.append(NonTerminal(lexeme[1:-1]))
-                elif lexeme in ("integer", "float", "whitespace", "newline"):
+                elif lexeme in ("integer", "float", "whitespace", "newline", "char"):
                     # keywords
                     rule.append(Terminal(lexeme, bind_token_type(lexeme)))
                 else:

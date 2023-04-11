@@ -1,8 +1,7 @@
 import itertools
 import re
-import warnings
 from dataclasses import dataclass
-from typing import Iterator, NamedTuple, Optional, Tuple
+from typing import Iterator, NamedTuple, Optional
 
 
 def group(*choices):
@@ -110,8 +109,7 @@ class Tokenizer:
         )
         if ret is None:
             # no token found
-            warnings.warn(f"unknown token at {pos}: {self._code[self._code_offset]}")
-            return self.Token(self._current_char(), self._current_char(), pos)
+            return self.Token("char", self._current_char(), pos)
 
         lexeme, ret_type = ret
         self._skip_n_chars(len(lexeme) - 1)

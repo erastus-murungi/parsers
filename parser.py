@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
 from itertools import product
-from typing import Union, Iterator, NamedTuple
+from typing import Union, Iterator, NamedTuple, cast, TypedDict
 
 from rich import print as print_rich
 from rich.pretty import pretty_repr
 from rich.traceback import install
 
 from cfg import CFG
-from core import NonTerminal, Terminal
+from core import NonTerminal, Terminal, EOF, EMPTY
 from earley import gen_early_sets, EarleyItem
 from parse_grammar import parse_grammar
 from tokenizer import Tokenizer
@@ -15,9 +15,29 @@ from tokenizer import Tokenizer
 install(show_locals=True)
 
 
+class AST(TypedDict):
+    id: str
+    expansion: list["AST"]
+
+
 class ParseTree(NamedTuple):
     id: NonTerminal
-    expansion: tuple[Union["ParseTree", Tokenizer.Token], ...]
+    expansion: list[Union["ParseTree", Tokenizer.Token]]
+
+    def collapse(self) -> AST:
+        expansion = []
+        for child in self.expansion:
+            if isinstance(child, Tokenizer.Token):
+                expansion.append(child.lexeme)
+            else:
+                child_collapse = child.collapse()
+                assert "id" in child_collapse
+                if child_collapse:
+                    if len(child_collapse["expansion"]) == 1:
+                        expansion.extend(child_collapse["expansion"])
+                    else:
+                        expansion.append(child_collapse)
+        return {"id": self.id.id, "expansion": expansion}
 
 
 class Parser(ABC):
@@ -25,6 +45,45 @@ class Parser(ABC):
     def parse(self, tokens: list[Tokenizer.Token]) -> Iterator[ParseTree]:
         """Parse a list of tokens into a parse tree"""
         ...
+
+
+class LL1Parser(Parser):
+    def __init__(self, grammar: CFG):
+        self.grammar = grammar
+
+    def parse(self, tokens: list[Tokenizer.Token]) -> Iterator[ParseTree]:
+        parsing_table = self.grammar.build_ll1_parsing_table()
+        root = ParseTree(self.grammar.start_symbol, [])
+        stack, token_index = [
+            (EOF, root),
+            (self.grammar.start_symbol, root),
+        ], 0
+
+        while stack:
+            symbol, root = stack.pop()
+            token = tokens[token_index]
+            if isinstance(symbol, Terminal):
+                if symbol.matches(token):
+                    root.expansion.append(token)
+                    token_index += symbol is not EMPTY
+                else:
+                    raise SyntaxError(f"Expected {symbol.id} but got {token}")
+            else:
+                non_terminal = cast(NonTerminal, symbol)
+                if (rule := parsing_table.get((non_terminal, token.id))) is not None:
+                    nodes = [ParseTree(sym, []) for sym in rule]
+                    root.expansion.extend(nodes)
+                    stack.extend(reversed(list(zip(rule, nodes))))
+                else:
+                    raise SyntaxError(
+                        f"At position {token.loc}, "
+                        f"was parsing {symbol!s} "
+                        f'expecting one of ({", ".join(terminal.id for terminal in self.grammar.first()[symbol])}), '
+                        f"but found {token.id!s}"
+                    )
+        assert token_index >= len(tokens)
+        print_rich(pretty_repr(root.collapse()))
+        return root
 
 
 class EarleyParser(Parser):
@@ -38,6 +97,10 @@ class EarleyParser(Parser):
             earley_set.remove_unfinished()
             for earley_set in gen_early_sets(self.grammar, tokens)
         ]
+
+        print_rich(
+            pretty_repr({pos: earley_set for pos, earley_set in enumerate(earley_sets)})
+        )
 
         # reverse the earley sets
         parse_forest: list[list[EarleyItem]] = [[] for _ in range(len(tokens))]
@@ -102,22 +165,75 @@ class EarleyParser(Parser):
                 and earley_item.name == self.grammar.start_symbol
             ):
                 for tree in build_tree(earley_item, 0, n_tokens):
+                    print_rich(pretty_repr(tree.collapse()))
                     yield tree
 
 
 if __name__ == "__main__":
-    g = """
-        <Program>
-        <Program>       -> <Sum>
-        <Sum>           -> <Sum> <PlusOrMinus> <Product> | <Product>
-        <Product>       -> <Product> <MulOrDiv> <Factor> | <Factor>
-        <Factor>        -> (<Sum>) | <Number>
-        <Number>        -> integer
-        <PlusOrMinus>   -> + | -
-        <MulOrDiv>      -> * | /
-    """
+    # g = """
+    #     <program>
+    #     <program> -> <expression>
+    #     <expression> -> <term> | <term> <add_op> <expression>
+    #     <term> -> <factor> | <factor> <mult_op> <term>
+    #     <factor> -> <power> | <power> ^ <factor>
+    #     <power> -> <number> | ( <expression> )
+    #     <number> -> <digit> | <digit> <number>
+    #     <add_op> -> + | -
+    #     <mult_op> -> * | /
+    #     <digit> -> integer | float
+    # """
 
-    table = {"(": "(", ")": ")", "+": "+", "-": "-", "*": "*", "/": "/"}
+    table = {
+        "(": "(",
+        ")": ")",
+        "-": "-",
+        "/": "/",
+        "or_literal": "|",
+        "?:": "capture",
+        "$": "end",
+        "^": "start",
+        ".": "any",
+        "\\d": "digit",
+        "\\D": "not_digit",
+        "\\s": "space",
+        "\\S": "not_space",
+        "\\w": "word",
+        "\\W": "not_word",
+    }
+
+    # g = """
+    #     <S>
+    #     <S> -> <MaybeOpeningAnchor><Expr><MaybeClosingAnchor>
+    #     <Expr> -> <Expr> or_literal <Term> | <Term>
+    #     <Term> -> <Factor> <Term> | <Factor>
+    #     <Factor> -> <Atom> <Quantifier> | <Atom>
+    #     <Atom> -> <Char> | <Group>
+    #     <Char> -> <Literal> | <Metachar>
+    #     <Quantifier> -> * | + | ? | { integer } | { integer , } | { integer , integer } | { , integer }
+    #     <Literal> -> char
+    #     <Metachar> -> . | <CharacterClass>
+    #     <Group> -> (<MaybeCapture> <Expr> )
+    #     <MaybeCapture> -> ?: |
+    #     <MaybeOpeningAnchor> -> ^ |
+    #     <MaybeClosingAnchor> -> $ |
+    #
+    #     <CharacterClass> -> \\d | \\D | \\s | \\S | \\w | \\W
+    #
+    # """
+    table = {
+        "(": "(",
+        ")": ")",
+        "+": "+",
+        "*": "*",
+    }
+
+    g = """
+         <S>
+         <S> -> <E>
+         <E> -> integer
+         <E> -> (<E> <Op> <E>)
+         <Op> -> + | *
+    """
 
     # g = """
     # <G>
@@ -130,8 +246,10 @@ if __name__ == "__main__":
 
     g = parse_grammar(g, table)
     print_rich(pretty_repr(g))
+    #
+    # tks = Tokenizer("^a+(?:ab)c{1,3}$", table).get_tokens_no_whitespace()
+    tks = Tokenizer("(1 + 1)", table).get_tokens_no_whitespace()
+    print_rich(pretty_repr(tks))
 
-    tks = Tokenizer("1 + (2*3 - 4)", table).get_tokens_no_whitespace()
-
-    earley_parser = EarleyParser(g)
-    print_rich(pretty_repr(list(earley_parser.parse(tks))))
+    earley_parser = LL1Parser(g)
+    list(earley_parser.parse(tks))
