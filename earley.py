@@ -1,8 +1,9 @@
-from typing import Iterable, NamedTuple
+from typing import NamedTuple
 
 from rich.traceback import install
 
 from core import NonTerminal, Rule, Terminal
+from lr_common import State
 from tokenizer import Token
 
 install(show_locals=True)
@@ -24,39 +25,18 @@ class EarleyItem(NamedTuple):
     def advance(self):
         return EarleyItem(self.name, self.dot + 1, self.explicit_index, self.rule)
 
-    def is_completed(self):
+    def completed(self):
         return self.dot >= len(self.rule)
 
 
-class EarleySet(list[EarleyItem]):
-    def __init__(self, *items):
-        assert all(
-            isinstance(item, EarleyItem) for item in items
-        ), "All items must be EarleyItem"
-        super().__init__(set(items))
-
-    def append(self, earley_item: EarleyItem) -> None:
-        if not isinstance(earley_item, EarleyItem):
-            raise TypeError(f"Expected EarleyItem, got {type(earley_item)}")
-        if earley_item not in self:
-            super().append(earley_item)
-
-    def extend(self, earley_items: Iterable[EarleyItem]) -> None:
-        for earley_item in earley_items:
-            self.append(earley_item)
-
-    def remove_unfinished(self):
-        return EarleySet(*(item for item in self if item.is_completed()))
-
-
-def gen_early_sets(grammar, tokens: list[Token]) -> list[EarleySet]:
+def gen_early_sets(grammar, tokens: list[Token]) -> list[State[EarleyItem]]:
     # initialize the recognizer; we have exactly one set for each token
     assert len(tokens) > 0, "Cannot recognize an empty string"
     assert tokens[-1].token_type == "eof", "Last token must be EOF"
 
     nullable_set = grammar.nullable()
 
-    earley_sets = [EarleySet() for _ in range(len(tokens))]
+    earley_sets = [State[EarleyItem](cls=EarleyItem) for _ in range(len(tokens))]
     earley_sets[0].extend(
         EarleyItem(
             grammar.start_symbol,
@@ -85,7 +65,7 @@ def gen_early_sets(grammar, tokens: list[Token]) -> list[EarleySet]:
                     )
             else:
                 for item in earley_sets[start]:
-                    if not item.is_completed() and item.rule[item.dot] == name:
+                    if not item.completed() and item.rule[item.dot] == name:
                         earley_set.append(item.advance())
             current_pos += 1
 

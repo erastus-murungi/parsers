@@ -1,17 +1,15 @@
 import subprocess
 import sys
-from abc import ABC
-from dataclasses import dataclass
-from typing import NamedTuple, Iterable
+from typing import NamedTuple
 
 from cfg import CFG
-from core import NonTerminal, Rule, EMPTY, EOF, Symbol, Terminal
-from parse_grammar import parse_grammar
+from core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
+from lr_common import Accept, Action, Goto, Reduce, Shift, State
 
-FILENAME = "ast"
-AST_DOT_FILEPATH = FILENAME + "." + "dot"
-AST_GRAPH_TYPE = "pdf"
-AST_OUTPUT_FILENAME = FILENAME + "." + AST_GRAPH_TYPE
+FILENAME = "state_graph"
+DOT_FILEPATH = FILENAME + "." + "dot"
+GRAPH_TYPE = "pdf"
+OUTPUT_FILENAME = FILENAME + "." + GRAPH_TYPE
 
 
 class LR0Item(NamedTuple):
@@ -29,100 +27,24 @@ class LR0Item(NamedTuple):
     def advance(self):
         return LR0Item(self.name, self.dot + 1, self.rule)
 
-    def is_completed(self):
+    def completed(self):
         return self.dot >= len(self.rule)
 
 
-class LR0State(list[LR0Item]):
-    def __init__(self, *items):
-        assert all(
-            isinstance(item, LR0Item) for item in items
-        ), "All items must be EarleyItem"
-        super().__init__(set(items))
-
-    def append(self, earley_item: LR0Item) -> None:
-        if not isinstance(earley_item, LR0Item):
-            raise TypeError(f"Expected EarleyItem, got {type(earley_item)}")
-        if earley_item not in self:
-            super().append(earley_item)
-
-    def extend(self, earley_items: Iterable[LR0Item]) -> None:
-        for earley_item in earley_items:
-            self.append(earley_item)
-
-    def yield_finished(self):
-        for item in self:
-            if item.is_completed():
-                yield item
-
-    def yield_unfinished(self):
-        for item in self:
-            if not item.is_completed():
-                yield item
-
-    def copy(self) -> "LR0State":
-        return LR0State(*self)
-
-    def __hash__(self):
-        return hash(tuple(self))
-
-    def __str__(self):
-        return "\n".join(
-            f"{item.name!s} -> {' '.join(str(sym) for sym in item.rule[:item.dot])}"
-            f" . "
-            f"{' '.join(str(sym) for sym in item.rule[item.dot:])}"
-            for item in self
-        )
-
-
-class Action(ABC):
-    pass
-
-
-@dataclass(frozen=True, slots=True)
-class Reduce(Action):
-    lhs: NonTerminal
-    rule: Rule
-
-    def __str(self):
-        return f"Reduce({self.lhs!s} -> {' '.join(str(sym) for sym in self.rule)})"
-
-
-@dataclass(frozen=True, slots=True)
-class Goto(Action):
-    state: LR0State
-
-    def __str__(self):
-        return f"Goto({self.state!s})"
-
-
-@dataclass(frozen=True, slots=True)
-class Accept(Action):
-    pass
-
-
-@dataclass(frozen=True, slots=True)
-class Shift(Action):
-    state: LR0State
-
-    def __str__(self):
-        return f"Shift(\n{self.state!s}\n)"
-
-
-class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
+class LR0ParsingTable(dict[tuple[State[LR0Item], str], Action]):
     def __init__(self, grammar: CFG):
         super().__init__()
         self.grammar = grammar
-        self.states: list[LR0State] = []
+        self.states: list[State[LR0Item]] = []
         self.construct()
 
-    def closure(self, state: LR0State):
+    def closure(self, state: State[LR0Item]):
         # Closure adds more items to a set of items when
         # there is a dot to the left of a non-terminal;
         # The LR(0) closure step adds all items of the form B → •γ to a state
         # whenever the state contains an item A → α • Bβ.
 
-        new_items = state.copy()
+        new_items: State[LR0Item] = state.copy()
         # for all items of the form A → α • Bβ
         changing = True
         while changing:
@@ -136,7 +58,7 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
                     changing = len(new_items) != initial_size
         return new_items
 
-    def goto(self, state: LR0State, sym: Symbol) -> LR0State:
+    def goto(self, state: State[LR0Item], sym: Symbol) -> State[LR0Item]:
         # Goto is the transition function of the LR(0) automaton.
         # It takes a state and a symbol and returns the state that
         # results from shifting the dot over the symbol.
@@ -144,22 +66,35 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
         # If the symbol is a non-terminal, then the state is the closure
         # of the state resulting from shifting the dot over the symbol.
         assert sym is not EMPTY and sym is not EOF
-        new_items = LR0State()
-        for item in state:
-            if item.is_completed():
-                continue
+        kernel = State[LR0Item](cls=LR0Item)
+        for item in state.yield_unfinished():
             if item.rule[item.dot] == sym:
-                new_items.append(item.advance())
-        return self.closure(new_items)
+                kernel.append(item.advance())
+        return self.closure(kernel)
 
     def get_initial_kernel(self):
-        return LR0State(
+        return State[LR0Item](
             LR0Item(
                 self.grammar.start_symbol,
                 0,
                 self.grammar[self.grammar.start_symbol][0].append_marker(EOF),
-            )
+            ),
+            cls=LR0Item,
         )
+
+    def compute_reduce_actions(self):
+        for state in self.states:
+            for item in state.yield_finished():
+                for symbol in self.grammar.terminals:
+                    if (state, symbol.id) not in self:
+                        self[(state, symbol.id)] = Reduce(item.name, item.rule)
+                    else:
+                        raise ValueError(
+                            f"Encountered shift/reduce conflict on \n"
+                            f" state: {str(state)}\n and symbol: {symbol.id}\n"
+                            f"  {self[(state, symbol.id)]} and \n"
+                            f"  Reduce({item.name!s} -> {item.rule!s})"
+                        )
 
     def construct(self):
         states = {self.closure(self.get_initial_kernel()): None}
@@ -189,20 +124,8 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
                             self[(state, symbol.id)] = action
                             changing = True
 
-        # compute reduce actions
-        for state in states:
-            for item in state.yield_finished():
-                for symbol in self.grammar.terminals:
-                    if (state, symbol.id) not in self:
-                        self[(state, symbol.id)] = Reduce(item.name, item.rule)
-                    else:
-                        raise ValueError(
-                            f"Encountered shift/reduce conflict on \n"
-                            f" state: {str(state)}\n and symbol: {symbol.id}\n"
-                            f"  {self[(state, symbol.id)]} and \n"
-                            f"  Reduce({item.name!s} -> {item.rule!s})"
-                        )
         self.states = list(states)
+        self.compute_reduce_actions()
 
     def draw_with_graphviz(self):
         def graph_prologue():
@@ -235,9 +158,9 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
             )
 
         def create_graph_pdf(
-            dot_filepath=AST_DOT_FILEPATH,
-            output_filepath=AST_OUTPUT_FILENAME,
-            output_filetype=AST_GRAPH_TYPE,
+            dot_filepath=DOT_FILEPATH,
+            output_filepath=OUTPUT_FILENAME,
+            output_filetype=GRAPH_TYPE,
         ):
             dot_exec_filepath = (
                 "/usr/local/bin/dot" if sys.platform == "darwin" else "/usr/bin/dot"
@@ -252,17 +175,21 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
             ]
             subprocess.run(args)
             subprocess.run(["open", output_filepath])
-            subprocess.run(["rm", AST_DOT_FILEPATH])
+            subprocess.run(["rm", DOT_FILEPATH])
 
         graph = [graph_prologue()]
         edges = []
         nodes = []
         seen = set()
+
+        edges.append(
+            f"    start:from_false -> {hash(str(self.states[0]))}:from_node [arrowhead=vee] "
+        )
         for (start, edge_label), action in self.items():
             if start not in seen:
                 nodes.append(
                     f"   {hash(str(start))} [shape=record, style=filled, fillcolor=black, "
-                    f'fontcolor=white, label="{str(start)}"];'
+                    f'fontcolor=white, label="{escape(str(start))}"];'
                 )
             seen.add(start)
             match action:
@@ -272,7 +199,7 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
                     if state not in seen:
                         nodes.append(
                             f"   {hash(str(state))} [shape=record, style=filled, "
-                            f'fillcolor=black, fontcolor=white, label="{str(state)}"];'
+                            f'fillcolor=black, fontcolor=white, label="{escape(str(state))}"];'
                         )
                     edges.append(
                         f"    {hash(str(start))}:from_false -> {hash(str(state))}:from_node "
@@ -283,7 +210,7 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
                     if state not in seen:
                         nodes.append(
                             f"   {hash(str(state))} [shape=record, style=filled, "
-                            f'fillcolor=black, fontcolor=white, label="{str(state)}"];'
+                            f'fillcolor=black, fontcolor=white, label="{escape(str(state))}"];'
                         )
                     edges.append(
                         f"    {hash(str(start))}:from_false -> {hash(str(state))}:from_node "
@@ -296,17 +223,35 @@ class LR0ParsingTable(dict[tuple[LR0State, str], Action]):
         graph.extend(edges)
         graph.extend(nodes)
         graph.append(graph_epilogue())
-        graph.append(graph_epilogue())
 
-        with open(AST_DOT_FILEPATH, "w") as f:
+        with open(DOT_FILEPATH, "w") as f:
             f.write("\n".join(graph))
 
         create_graph_pdf()
 
 
+class SLRParsingTable(LR0ParsingTable):
+    def compute_reduce_actions(self):
+        follow_set = self.grammar.follow()
+        for state in self.states:
+            for item in state.yield_finished():
+                for symbol in follow_set[item.name]:
+                    if (state, symbol.id) not in self:
+                        self[(state, symbol.id)] = Reduce(item.name, item.rule)
+                    else:
+                        raise ValueError(
+                            f"Encountered shift/reduce conflict on \n"
+                            f" state: {str(state)}\n and symbol: {symbol.id}\n"
+                            f"  {self[(state, symbol.id)]} and \n"
+                            f"  Reduce({item.name!s} -> {item.rule!s})"
+                        )
+
+
 if __name__ == "__main__":
     from rich import print as print_rich
     from rich.pretty import pretty_repr
+
+    from parse_grammar import parse_grammar
 
     table = {
         "x": "x",

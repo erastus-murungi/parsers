@@ -5,7 +5,7 @@ from typing import cast
 from cfg import CFG
 from core import EMPTY, EOF, NonTerminal, Rule, Terminal
 from earley import gen_early_sets
-from lr import LR0ParsingTable, Shift, Reduce, Goto, Accept
+from lr0 import Accept, Goto, LR0ParsingTable, Reduce, Shift, SLRParsingTable
 from tokenizer import Token
 
 MAX_ITERATIONS = 1000_000
@@ -129,21 +129,23 @@ class EarleyRecognizer(Recognizer):
 
 
 class LR0Recognizer(Recognizer):
+    def get_parsing_table(self):
+        return LR0ParsingTable(self.grammar)
+
     def recognizes(self, tokens: list[Token]) -> bool:
-        lr0_parsing_table = LR0ParsingTable(self.grammar)
-        stack, token_index = [lr0_parsing_table.states[0]], 0
+        parsing_table = self.get_parsing_table()
+        stack, token_index = [parsing_table.states[0]], 0
         while stack:
             state = stack[-1]
             token = tokens[token_index]
-            match lr0_parsing_table.get((state, token.id)):
+            match parsing_table.get((state, token.id)):
                 # Advance input one token; push state n on stack.
                 case Shift(state):
                     stack.append(state)
                     token_index += 1
                 case Reduce(lhs, rule):
-                    n_symbols = len(rule)
-                    stack = stack[:-n_symbols]
-                    match lr0_parsing_table[(stack[-1], lhs.id)]:
+                    stack = stack[: -len(rule)]
+                    match parsing_table[(stack[-1], lhs.id)]:
                         case Goto(state):
                             stack.append(state)
                         case _:
@@ -157,9 +159,15 @@ class LR0Recognizer(Recognizer):
         )
 
 
+class SLRRecognizer(LR0Recognizer):
+    def get_parsing_table(self):
+        return SLRParsingTable(self.grammar)
+
+
 if __name__ == "__main__":
     from rich import print as print_rich
     from rich.pretty import pretty_repr
+
     from parse_grammar import parse_grammar
     from tokenizer import Tokenizer
 
@@ -177,12 +185,12 @@ if __name__ == "__main__":
     #         <S> -> x
     #         <L> -> <L>,<S>
     # """
-    # table = {
-    #     "+": "+",
-    #     ";": ";",
-    #     "(": "(",
-    #     ")": ")",
-    # }
+    table = {
+        "+": "+",
+        ";": ";",
+        "(": "(",
+        ")": ")",
+    }
     #
     # g = """
     #     <S>
@@ -190,25 +198,33 @@ if __name__ == "__main__":
     #     <E> -> <T>; | <T> + <E>
     #     <T> -> (<E>) | integer
     # """
-    table = {
-        "+": "+",
-        "-": "-",
-        "*": "*",
-        "a": "a",
-    }
 
     g = """
         <S>
-        <S> -> <A>
-        <A> -> <A> + <A> | <A> − <A> | a
+        <S> -> <E>
+        <E> -> <T> | <T> + <E>
+        <T> -> (<E>) | integer
     """
-    tks = Tokenizer("1 + (2 + 3;);", table).get_tokens_no_whitespace()
+
+    # table = {
+    #     "+": "+",
+    #     "-": "-",
+    #     "*": "*",
+    #     "a": "a",
+    # }
+    #
+    # g = """
+    #     <S>
+    #     <S> -> <A>
+    #     <A> -> <A> + <A> | <A> − <A> | a
+    # """
+    tks = Tokenizer("1 + (2 + 3)", table).get_tokens_no_whitespace()
 
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
-    p = LR0ParsingTable(cfg)
+    p = SLRParsingTable(cfg)
     print_rich(pretty_repr(p.states))
     print_rich(pretty_repr(p))
 
-    # p.draw_with_graphviz()
-    print_rich(pretty_repr(LR0Recognizer(cfg).recognizes(tks)))
+    p.draw_with_graphviz()
+    print_rich(pretty_repr(SLRRecognizer(cfg).recognizes(tks)))

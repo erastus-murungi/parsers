@@ -1,14 +1,15 @@
 from abc import ABC, abstractmethod
 from itertools import product
-from typing import Iterator, NamedTuple, TypedDict, Union, cast, Required
+from typing import Iterator, NamedTuple, Required, TypedDict, Union, cast
 
 from rich import print as print_rich
 from rich.pretty import pretty_repr
 from rich.traceback import install
 
 from cfg import CFG
-from core import EMPTY, EOF, NonTerminal, Terminal, Symbol
+from core import EMPTY, EOF, NonTerminal, Symbol, Terminal
 from earley import EarleyItem, gen_early_sets
+from lr_common import State
 from parse_grammar import parse_grammar
 from tokenizer import Token, Tokenizer
 
@@ -94,7 +95,7 @@ class EarleyParser(Parser):
         """Parse a list of tokens into a parse tree"""
 
         earley_sets = [
-            earley_set.remove_unfinished()
+            State[EarleyItem](*earley_set.yield_finished(), cls=EarleyItem)
             for earley_set in gen_early_sets(self.grammar, tokens)
         ]
 
@@ -268,4 +269,4 @@ if __name__ == "__main__":
     print_rich(pretty_repr(tks))
 
     earley_parser = EarleyParser(cfg)
-    list(earley_parser.parse(tks))
+    print_rich(pretty_repr(list(earley_parser.parse(tks))))
