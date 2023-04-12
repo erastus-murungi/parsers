@@ -9,7 +9,7 @@ from typing import Generic, Hashable, Iterable, Protocol, TypeVar, runtime_check
 from prettytable import PrettyTable
 
 from grammar import CFG
-from grammar.core import NonTerminal, Symbol
+from grammar.core import NonTerminal, Symbol, Rule
 
 FILENAME = "./graphs/state_graph"
 DOT_FILEPATH = FILENAME + "." + "dot"
@@ -26,8 +26,8 @@ class Completable(Protocol, Hashable):
 T = TypeVar("T", bound=Completable)
 
 
-class State(list[T]):
-    ids: dict["State", int] = defaultdict(count(1).__next__)
+class LRState(list[T]):
+    ids: dict["LRState", int] = defaultdict(count(1).__next__)
 
     def __init__(self, *items, cls: type[T]):
         self.type = cls
@@ -41,7 +41,7 @@ class State(list[T]):
     def id(self):
         if not self:
             return 0
-        return State.ids[self]
+        return LRState.ids[self]
 
     def append(self, completable: T) -> None:
         if not isinstance(completable, Completable):
@@ -63,8 +63,8 @@ class State(list[T]):
             if not item.completed():
                 yield item
 
-    def copy(self) -> "State":
-        return State(*self, cls=self.type)
+    def copy(self) -> "LRState":
+        return LRState(*self, cls=self.type)
 
     def __hash__(self):
         return hash(frozenset(self))
@@ -77,21 +77,25 @@ class State(list[T]):
 
 
 class Action(ABC):
+    """
+    The super class of all possible actions that can be taken by a shift-reduce parser.
+    """
+
     pass
 
 
 @dataclass(frozen=True, slots=True)
 class Reduce(Action):
     lhs: NonTerminal
-    length: int
+    rule: Rule
 
     def __str__(self):
-        return f"Reduce({self.length})"
+        return f"Reduce({self.rule!s})"
 
 
 @dataclass(frozen=True, slots=True)
 class Goto(Action, Generic[T]):
-    state: State[T]
+    state: LRState[T]
 
     def __str__(self):
         return f"Goto({self.state!s})"
@@ -104,17 +108,28 @@ class Accept(Action):
 
 @dataclass(frozen=True, slots=True)
 class Shift(Action, Generic[T]):
-    state: State[T]
+    """
+    Advance input one token;
+    push `state` on stack.
+
+    Attributes
+    ----------
+    state: LRState[T]
+        The LR state to push on the stack.
+
+    """
+
+    state: LRState[T]
 
     def __str__(self):
         return f"Shift(\n{self.state!s}\n)"
 
 
-class LRTable(dict[tuple[State[T], str], Action], ABC):
+class LRTable(dict[tuple[LRState[T], str], Action], ABC):
     def __init__(self, grammar: CFG, *, reduce: bool = True):
         super().__init__()
         self.grammar = grammar
-        self.states: list[State[T]] = []
+        self.states: list[LRState[T]] = []
         self.reduce = reduce
         self.accept = None
         self.construct()
@@ -123,15 +138,15 @@ class LRTable(dict[tuple[State[T], str], Action], ABC):
         return id(self)
 
     @abstractmethod
-    def closure(self, state: State[T]):
+    def closure(self, state: LRState[T]):
         pass
 
     @abstractmethod
-    def goto(self, state: State[T], sym: Symbol) -> State[T]:
+    def goto(self, state: LRState[T], sym: Symbol) -> LRState[T]:
         pass
 
     @abstractmethod
-    def init_kernel(self) -> State[T]:
+    def init_kernel(self) -> LRState[T]:
         pass
 
     @abstractmethod
@@ -236,7 +251,8 @@ class LRTable(dict[tuple[State[T], str], Action], ABC):
                     seen.add(state)
                 case Reduce(name, _):
                     edges.append(
-                        f'    {hash(str(start))}:from_node -> {name!s}:from_false [arrowhead=vee, label="reduce [{edge_label}]"] '
+                        f"    {hash(str(start))}:from_node -> {name!s}:from_false "
+                        f'[arrowhead=vee, label="reduce [{edge_label}]"] '
                     )
 
         graph.extend(edges)
@@ -256,7 +272,7 @@ class LRTable(dict[tuple[State[T], str], Action], ABC):
         )
         pretty_table = PrettyTable()
         pretty_table.field_names = syms
-        hashmap: dict[State[T], dict[str, Action]] = defaultdict(dict)
+        hashmap: dict[LRState[T], dict[str, Action]] = defaultdict(dict)
 
         for (state, edge_label), action in self.items():
             hashmap[state][edge_label] = action
@@ -270,15 +286,15 @@ class LRTable(dict[tuple[State[T], str], Action], ABC):
                         row.append(f"goto {state.id}")
                     case Shift(state):
                         row.append(f"shift {state.id}")
-                    case Reduce(name, length):
-                        row.append(f"reduce {name!s}({length})")
+                    case Reduce(name, rule):
+                        row.append(f"reduce {name!s}({rule!s})")
                     case Accept():
                         row.append("accept")
                     case _:
                         row.append("")
             rows.append(row)
 
-        rows.sort(key=lambda row: row[0])
+        rows.sort(key=lambda r: r[0])
         pretty_table.add_rows(rows)
 
         return pretty_table.get_string()

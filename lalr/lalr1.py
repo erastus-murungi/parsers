@@ -4,16 +4,16 @@ from more_itertools import one
 
 from grammar import CFG
 from grammar.core import NonTerminal, Rule, Terminal
-from lr.core import Goto, Reduce, Shift, State, T
+from lr.core import Goto, Reduce, Shift, LRState, T
 from lr.lr0 import LR0Item, LR0ParsingTable
 
 
 class AugmentedSymbol(NonTerminal):
-    def __init__(self, symbol: NonTerminal, start: State[T], end: State[T]):
+    def __init__(self, symbol: NonTerminal, start: LRState[T], end: LRState[T]):
         super().__init__(f"{symbol!r} <{start.id!r}-{end.id!r}>")
         self.symbol: NonTerminal = symbol
-        self.start: State[T] = start
-        self.end: State[T] = end
+        self.start: LRState[T] = start
+        self.end: LRState[T] = end
 
     def __repr__(self):
         return f"{self.symbol!r} [{self.start.id!r}:{self.end.id!r}]"
@@ -31,25 +31,25 @@ class LALR1ParsingTable(LR0ParsingTable):
                 lookahead = self.lookaheads[state][item]
                 for symbol in lookahead:
                     if (state, symbol.id) not in self:
-                        self[(state, symbol.id)] = Reduce(item.name, len(item.rule))
+                        self[(state, symbol.id)] = Reduce(item.name, item.rule)
                     else:
                         raise ValueError(
                             f"Encountered conflict on \n"
                             f" state: {str(state)}\n and symbol: {symbol.id}\n"
                             f"  {self[(state, symbol.id)]} and \n"
-                            f"  {Reduce(item.name, len(item.rule))}"
+                            f"  {Reduce(item.name, item.rule)}"
                         )
 
     def compute_augmented_grammar(
         self,
-    ) -> tuple[CFG, dict[State, dict[NonTerminal, AugmentedSymbol]]]:
+    ) -> tuple[CFG, dict[LRState, dict[NonTerminal, AugmentedSymbol]]]:
         augmented_grammar = CFG(
             start_symbol=AugmentedSymbol(
-                self.grammar.start_symbol, self.states[0], State[LR0Item](cls=LR0Item)
+                self.grammar.start_symbol, self.states[0], LRState[LR0Item](cls=LR0Item)
             )
         )
 
-        old2new: dict[State, dict[NonTerminal, AugmentedSymbol]] = defaultdict(dict)
+        old2new: dict[LRState, dict[NonTerminal, AugmentedSymbol]] = defaultdict(dict)
 
         for start_state in self.states:
             for item in start_state:
@@ -83,7 +83,7 @@ class LALR1ParsingTable(LR0ParsingTable):
         return augmented_grammar, old2new
 
     def get_only_completable_item(
-        self, current_state: State[LR0Item], current_item: LR0Item
+        self, current_state: LRState[LR0Item], current_item: LR0Item
     ) -> LR0Item:
         return one(
             (
@@ -100,14 +100,14 @@ class LALR1ParsingTable(LR0ParsingTable):
             too_long=ValueError(f"Multiple completable items found in {current_state}"),
         )
 
-    def compute_lookaheads(self) -> dict[State, dict[LR0Item, set[Terminal]]]:
+    def compute_lookaheads(self) -> dict[LRState, dict[LR0Item, set[Terminal]]]:
         augmented_grammar, old2new = self.compute_augmented_grammar()
         # print_rich(pretty_repr(augmented_grammar))
         # print_rich(pretty_repr(State.ids))
         # print_rich(pretty_repr(augmented_grammar.follow()))
 
         augmented_follow = augmented_grammar.follow()
-        lookaheads: dict[State, dict[LR0Item, set[Terminal]]] = defaultdict(
+        lookaheads: dict[LRState, dict[LR0Item, set[Terminal]]] = defaultdict(
             lambda: defaultdict(set)
         )
         # propagate the follow set

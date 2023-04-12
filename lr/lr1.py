@@ -2,7 +2,7 @@ from functools import cache
 from typing import NamedTuple
 
 from grammar.core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
-from lr.core import Accept, Goto, LRTable, Reduce, Shift, State
+from lr.core import Accept, Goto, LRTable, Reduce, Shift, LRState
 
 
 class LR1Item(NamedTuple):
@@ -34,7 +34,7 @@ class LR1Item(NamedTuple):
 
 class LR1ParsingTable(LRTable[LR1Item]):
     def init_kernel(self):
-        return State[LR1Item](
+        return LRState[LR1Item](
             LR1Item(
                 self.grammar.start_symbol,
                 0,
@@ -45,7 +45,7 @@ class LR1ParsingTable(LRTable[LR1Item]):
         )
 
     @cache
-    def closure(self, configuration_set: State[LR1Item]) -> State[LR1Item]:
+    def closure(self, configuration_set: LRState[LR1Item]) -> LRState[LR1Item]:
         """
         Compute the closure of LR(1) item set
         :param configuration_set: a set of LR(1) items
@@ -67,10 +67,12 @@ class LR1ParsingTable(LRTable[LR1Item]):
         return items
 
     @cache
-    def goto(self, configuration_set: State[LR1Item], sym: Symbol) -> State[LR1Item]:
+    def goto(
+        self, configuration_set: LRState[LR1Item], sym: Symbol
+    ) -> LRState[LR1Item]:
         """Compute the goto set of LR(1) item set"""
         assert sym is not EMPTY
-        new_items = State[LR1Item](cls=LR1Item)
+        new_items = LRState[LR1Item](cls=LR1Item)
         for item in configuration_set.yield_unfinished():
             if item.rule[item.dot] == sym:
                 new_items.append(item.advance())
@@ -89,7 +91,7 @@ class LR1ParsingTable(LRTable[LR1Item]):
                         f"  Reduce({name!s} -> {rule!s})"
                     )
 
-    def get_items(self) -> list[State[LR1Item]]:
+    def get_items(self) -> list[LRState[LR1Item]]:
         lr1_items = {self.closure(self.init_kernel()): None}
         changing = True
         while changing:
@@ -112,7 +114,7 @@ class LR1ParsingTable(LRTable[LR1Item]):
                         self[(state_i, EOF.id)] = Accept()
                     elif item.name != self.grammar.start_symbol:
                         self[(state_i, item.lookahead.id)] = Reduce(
-                            item.name, len(item.rule)
+                            item.name, item.rule
                         )
                 else:
                     a = item.rule[item.dot]
@@ -148,21 +150,40 @@ if __name__ == "__main__":
     #         <L> -> <L>,<S>
     # """
 
-    table = {"+": "+", "(": "(", ")": ")"}
+    # table = {"+": "+", "(": "(", ")": ")"}
+    #
+    # g = """
+    #     <S>
+    #     <S> -> <E>
+    #     <E> -> <E> + <T>
+    #     <E> -> <T>
+    #     <T> -> ( <E> )
+    #     <T> -> integer
+    # """
+    table = {
+        "+": "+",
+        "*": "*",
+        "(": "(",
+        ")": ")",
+    }
 
     g = """
-        <S>
-        <S> -> <E>
-        <E> -> <E> + <T>
-        <E> -> <T>
-        <T> -> ( <E> )
-        <T> -> integer
+    <E'>
+    <E'> -> <E>
+    <E> -> <E>+<T>
+    <E> -> <T>
+    <T> -> <T>*<F>
+    <T> -> <F>
+    <F> -> (<E>)
+    <F> -> integer
+
     """
 
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
 
-    lr1 = LR1ParsingTable(cfg)
-    lr1.draw_with_graphviz()
+    p = LR1ParsingTable(cfg)
+    p.draw_with_graphviz()
+    print_rich(p.to_pretty_table())
 
     print_rich(pretty_repr(LR1ParsingTable(cfg)))

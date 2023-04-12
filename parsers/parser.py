@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from itertools import product
 from typing import Iterator, NamedTuple, Required, TypedDict, Union, cast
 
+from more_itertools import one
 from rich import print as print_rich
 from rich.pretty import pretty_repr
 from rich.traceback import install
@@ -9,9 +10,12 @@ from rich.traceback import install
 from general.earley import EarleyItem, gen_early_sets
 from grammar import CFG
 from grammar.core import EMPTY, EOF, NonTerminal, Symbol, Terminal
+from lalr.lalr1 import LALR1ParsingTable
 from ll.ll1 import LL1ParsingTable
-from lr.core import State
-from utils.parse_grammar import parse_grammar
+from lr.core import LRState, Shift, Reduce, Goto, Accept
+from lr.lr0 import LR0ParsingTable
+from lr.lr1 import LR1ParsingTable
+from lr.slr import SLRParsingTable
 from utils.tokenizer import Token, Tokenizer
 
 install(show_locals=True)
@@ -43,6 +47,9 @@ class ParseTree(NamedTuple):
 
 
 class Parser(ABC):
+    def __init__(self, grammar: CFG):
+        self.grammar = grammar
+
     @abstractmethod
     def parse(self, tokens: list[Token]) -> Iterator[ParseTree] | ParseTree:
         """Parse a list of tokens into a parse tree"""
@@ -50,9 +57,6 @@ class Parser(ABC):
 
 
 class LL1Parser(Parser):
-    def __init__(self, grammar: CFG):
-        self.grammar = grammar
-
     def parse(self, tokens: list[Token]) -> Iterator[ParseTree] | ParseTree:
         parsing_table = LL1ParsingTable(self.grammar)
         root = ParseTree(self.grammar.start_symbol, [])
@@ -89,14 +93,11 @@ class LL1Parser(Parser):
 
 
 class EarleyParser(Parser):
-    def __init__(self, grammar: CFG):
-        self.grammar = grammar
-
     def parse(self, tokens: list[Token]) -> Iterator[ParseTree]:
         """Parse a list of tokens into a parse tree"""
 
         earley_sets = [
-            State[EarleyItem](*earley_set.yield_finished(), cls=EarleyItem)
+            LRState[EarleyItem](*earley_set.yield_finished(), cls=EarleyItem)
             for earley_set in gen_early_sets(self.grammar, tokens)
         ]
 
@@ -172,57 +173,131 @@ class EarleyParser(Parser):
                     yield tree
 
 
-if __name__ == "__main__":
-    # g = """
-    #     <program>
-    #     <program> -> <expression>
-    #     <expression> -> <term> | <term> <add_op> <expression>
-    #     <term> -> <factor> | <factor> <mult_op> <term>
-    #     <factor> -> <power> | <power> ^ <factor>
-    #     <power> -> <number> | ( <expression> )
-    #     <number> -> <digit> | <digit> <number>
-    #     <add_op> -> + | -
-    #     <mult_op> -> * | /
-    #     <digit> -> integer | float
-    # """
+class LR0Parser(Parser):
+    def get_parsing_table(self):
+        return LR0ParsingTable(self.grammar)
 
-    table = {
-        "(": "(",
-        ")": ")",
-        "-": "-",
-        "/": "/",
-        "or_literal": "|",
-        "?:": "capture",
-        "$": "end",
-        "^": "start",
-        ".": "any",
-        "\\d": "digit",
-        "\\D": "not_digit",
-        "\\s": "space",
-        "\\S": "not_space",
-        "\\w": "word",
-        "\\W": "not_word",
-    }
+    def parse(self, tokens: list[Token]) -> Iterator[ParseTree] | ParseTree:
+        parsing_table = self.get_parsing_table()
+        # root = ParseTree(self.grammar.start_symbol, [])
+        stack, token_index = [parsing_table.states[0]], 0
+        tree: list[ParseTree | Token] = []
+
+        while stack:
+            current_state = stack[-1]
+            current_token = tokens[token_index]
+            match parsing_table.get((current_state, current_token.id)):
+                # Advance input one token; push state n on stack.
+                # TODO: assert that current_state corresponds to the current_token
+                case Shift(current_state):
+                    stack.append(current_state)
+                    tree.append(current_token)
+                    token_index += current_token.id != EOF.id
+                case Reduce(lhs, rule):
+                    stack = stack[: -len(rule)]
+                    match parsing_table[(stack[-1], lhs.id)]:
+                        case Goto(current_state):
+                            stack.append(current_state)
+                            tree_top = tree[-len(rule) :]
+                            tree = tree[: -len(rule)] + [ParseTree(lhs, tree_top)]
+                            print_rich(pretty_repr(rule))
+                        case _:
+                            raise SyntaxError(
+                                f"Unexpected {current_token.id} at {current_token.loc}"
+                            )
+                case Accept():
+                    # output the parse tree
+                    if len(tree) == 1:
+                        return tree[0]
+                    assert EOF.matches(tree.pop())
+                    return one(tree)
+                case _:
+                    raise SyntaxError(
+                        f"Unexpected {current_token.id} at {current_token.loc}"
+                    )
+        raise SyntaxError(
+            f"Syntax error at {tokens[token_index] if token_index < len(tokens) else EOF}"
+        )
+
+
+class SLRParser(LR0Parser):
+    def get_parsing_table(self):
+        return SLRParsingTable(self.grammar)
+
+
+class LR1Parser(LR0Parser):
+    def get_parsing_table(self):
+        return LR1ParsingTable(self.grammar)
+
+
+class LALR1Parser(LR0Parser):
+    def get_parsing_table(self):
+        return LALR1ParsingTable(self.grammar)
+
+
+if __name__ == "__main__":
+    from utils.parse_grammar import parse_grammar
 
     g = """
-        <S>
-        <S> -> <MaybeOpeningAnchor><Expr><MaybeClosingAnchor>
-        <Expr> -> <Expr> or_literal <Term> | <Term>
-        <Term> -> <Factor> <Term> | <Factor>
-        <Factor> -> <Atom> <Quantifier> | <Atom>
-        <Atom> -> <Char> | <Group>
-        <Char> -> <Literal> | <Metachar>
-        <Quantifier> -> * | + | ? | { integer } | { integer , } | { integer , integer } | { , integer }
-        <Literal> -> char
-        <Metachar> -> . | <CharacterClass>
-        <Group> -> (<MaybeCapture> <Expr> )
-        <MaybeCapture> -> ?: |
-        <MaybeOpeningAnchor> -> ^ |
-        <MaybeClosingAnchor> -> $ |
-
-        <CharacterClass> -> \\d | \\D | \\s | \\S | \\w | \\W
-
+        <program>
+        <program> -> <expression>
+        <expression> -> <term> | <term> <add_op> <expression>
+        <term> -> <factor> | <factor> <mult_op> <term>
+        <factor> -> <power> | <power> ^ <factor>
+        <power> -> <number> | ( <expression> )
+        <number> -> <digit> | <digit> <number>
+        <add_op> -> + | -
+        <mult_op> -> * | /
+        <digit> -> integer | float
     """
+
+    table = {
+        "+": "+",
+        "-": "-",
+        "*": "*",
+        "/": "/",
+        "(": "(",
+        ")": ")",
+        "^": "^",
+    }
+
+    # table = {
+    #     "(": "(",
+    #     ")": ")",
+    #     "-": "-",
+    #     "/": "/",
+    #     "or_literal": "|",
+    #     "?:": "capture",
+    #     "$": "end",
+    #     "^": "start",
+    #     ".": "any",
+    #     "\\d": "digit",
+    #     "\\D": "not_digit",
+    #     "\\s": "space",
+    #     "\\S": "not_space",
+    #     "\\w": "word",
+    #     "\\W": "not_word",
+    # }
+    #
+    # g = """
+    #     <S>
+    #     <S> -> <MaybeOpeningAnchor><Expr><MaybeClosingAnchor>
+    #     <Expr> -> <Expr> or_literal <Term> | <Term>
+    #     <Term> -> <Factor> <Term> | <Factor>
+    #     <Factor> -> <Atom> <Quantifier> | <Atom>
+    #     <Atom> -> <Char> | <Group>
+    #     <Char> -> <Literal> | <Metachar>
+    #     <Quantifier> -> * | + | ? | { integer } | { integer , } | { integer , integer } | { , integer }
+    #     <Literal> -> char
+    #     <Metachar> -> . | <CharacterClass>
+    #     <Group> -> (<MaybeCapture> <Expr> )
+    #     <MaybeCapture> -> ?: |
+    #     <MaybeOpeningAnchor> -> ^ |
+    #     <MaybeClosingAnchor> -> $ |
+    #
+    #     <CharacterClass> -> \\d | \\D | \\s | \\S | \\w | \\W
+    #
+    # """
     # table = {
     #     "+": "+",
     #     "-": "-",
@@ -260,14 +335,44 @@ if __name__ == "__main__":
     # """
     # table = {}
 
+    # cfg = parse_grammar(g, table)
+    # print_rich(pretty_repr(cfg))
+    #
+    # # tks = Tokenizer("a + a − a", table).get_tokens_no_whitespace()
+    # #
+    # tks = Tokenizer("^a+(?:ab)c{1,3}$", table).get_tokens_no_whitespace()
+    # # tks = Tokenizer("(1 + 1)", table).get_tokens_no_whitespace()
+    # print_rich(pretty_repr(tks))
+    #
+    # earley_parser = EarleyParser(cfg)
+    # print_rich(pretty_repr(list(earley_parser.parse(tks))))
+
+    # table = {
+    #     '+': '+',
+    #     '*': '*',
+    #     '(': '(',
+    #     ')': ')',
+    # }
+    #
+    # g = """
+    # <E'>
+    # <E'> -> <E>
+    # <E> -> <E>+<T>
+    # <E> -> <T>
+    # <T> -> <T>*<F>
+    # <T> -> <F>
+    # <F> -> (<E>)
+    # <F> -> integer
+    #
+    # """
+
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
 
-    # tks = Tokenizer("a + a − a", table).get_tokens_no_whitespace()
-    #
-    tks = Tokenizer("^a+(?:ab)c{1,3}$", table).get_tokens_no_whitespace()
-    # tks = Tokenizer("(1 + 1)", table).get_tokens_no_whitespace()
-    print_rich(pretty_repr(tks))
+    p = SLRParsingTable(cfg)
+    p.draw_with_graphviz()
+    print_rich(p.to_pretty_table())
 
-    earley_parser = EarleyParser(cfg)
-    print_rich(pretty_repr(list(earley_parser.parse(tks))))
+    tks = Tokenizer("(1+2)", table).get_tokens_no_whitespace()
+    print_rich(pretty_repr(tks))
+    print_rich(pretty_repr([t.collapse() for t in EarleyParser(cfg).parse(tks)]))

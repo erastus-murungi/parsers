@@ -2,7 +2,11 @@ from functools import cache
 from typing import NamedTuple
 
 from grammar.core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
-from lr.core import Accept, Goto, LRTable, Reduce, Shift, State
+from lr.core import Accept, Goto, LRTable, Reduce, Shift, LRState
+
+from rich.traceback import install
+
+install(show_locals=True)
 
 
 class LR0Item(NamedTuple):
@@ -40,41 +44,80 @@ class LR0ParsingTable(LRTable[LR0Item]):
         self,
         grammar,
         *,
-        reduce: bool = False,
+        reduce: bool = True,
     ):
+        """
+        :param grammar: a context-free grammar
+        :param reduce: if True, reduce actions are generated
+        """
         super().__init__(grammar, reduce=reduce)
 
-    @cache
-    def closure(self, state: State[LR0Item]):
-        # Closure adds more items to a set of items when
-        # there is a dot to the left of a non-terminal;
-        # The LR(0) closure step adds all items of the form B → •γ to a state
-        # whenever the state contains an item A → α • Bβ.
+    def is_kernel_item(self, item: LR0Item) -> bool:
+        """
+        Return True if the item is a kernel item, False otherwise
 
-        new_items: State[LR0Item] = state.copy()
-        # for all items of the form A → α • Bβ
-        changing = True
-        while changing:
-            changing = False
-            for _, dot, rule in new_items.yield_unfinished():
+        :param item: an LR(0) item
+        :return: True if the item is a kernel item, False otherwise
+
+        Kernel items : the initial item, (S' -> .S), and all items whose dots are at the left end.
+        Kernel items are used to generate closure items.
+        """
+
+        return (item.name == self.grammar.start_symbol and item.at_start) or (
+            not item.at_start
+        )
+
+    @cache
+    def closure(self, kernel: LRState[LR0Item]):
+        """
+        Compute the closure of LR(0) item set
+
+        :param kernel: a set of LR(0) items
+              Kernel items : the initial item, (S' -> .S), and all items whose dots are at the left end.
+        :return: closure of the set
+
+        CLOSURE(I) = I ∪ { X → .γ | A → α • Xβ ∈ I, X → γ ∈ G }
+
+        Algorithm:
+            Closure(I) =
+                repeat
+                    for any item A → α.Xβ in I
+                        for any production X → γ
+                            I ← I ∪ { X → .γ }
+                until I does not change.
+                return I
+
+        """
+
+        # every item in L is in CLOSURE(L);
+        closure: LRState[LR0Item] = kernel.copy()
+
+        while True:
+            initial_closure_size = len(closure)
+            # a completed item is not in the closure
+            for _, dot, rule in closure.yield_unfinished():
                 b = rule[dot]  # α • Bβ
                 if isinstance(b, NonTerminal):
-                    # add all items of the form B → •γ
-                    initial_size = len(new_items)
-                    new_items.extend(LR0Item(b, 0, gamma) for gamma in self.grammar[b])
-                    changing = len(new_items) != initial_size
-        return new_items
+                    # add all B → .γ to the closure
+                    closure.extend(LR0Item(b, 0, gamma) for gamma in self.grammar[b])
+            if len(closure) == initial_closure_size:
+                break
+        return closure
 
     @cache
-    def goto(self, state: State[LR0Item], sym: Symbol) -> State[LR0Item]:
-        # Goto is the transition function of the LR(0) automaton.
-        # It takes a state and a symbol and returns the state that
-        # results from shifting the dot over the symbol.
-        # If the symbol is a terminal, then the state is unchanged.
-        # If the symbol is a non-terminal, then the state is the closure
-        # of the state resulting from shifting the dot over the symbol.
+    def goto(self, state: LRState[LR0Item], sym: Symbol) -> LRState[LR0Item]:
+        """
+        :param state: a state of the LR(0) state
+        :param sym: a symbol
+        :return: the state that results from shifting the dot over the symbol
+
+        Goto is the transition function of the LR(0) automaton.
+        It takes a state and a symbol and returns the state that
+        results from shifting the dot over the symbol.
+        """
+
         assert sym is not EMPTY and sym is not EOF
-        kernel = State[LR0Item](cls=LR0Item)
+        kernel = LRState[LR0Item](cls=LR0Item)
         for item in state.yield_unfinished():
             if item.rule[item.dot] == sym:
                 kernel.append(item.advance())
@@ -82,7 +125,7 @@ class LR0ParsingTable(LRTable[LR0Item]):
 
     @cache
     def init_kernel(self):
-        return State[LR0Item](
+        return LRState[LR0Item](
             LR0Item(
                 self.grammar.start_symbol,
                 0,
@@ -96,22 +139,23 @@ class LR0ParsingTable(LRTable[LR0Item]):
             for item in state.yield_finished():
                 for symbol in self.grammar.terminals:
                     if (state, symbol.id) not in self:
-                        self[(state, symbol.id)] = Reduce(item.name, len(item.rule))
+                        self[(state, symbol.id)] = Reduce(item.name, item.rule)
                     else:
                         raise ValueError(
-                            f"Encountered shift/reduce conflict on \n"
+                            f"Encountered conflict on \n"
                             f" state: {str(state)}\n and symbol: {symbol.id}\n"
                             f"  {self[(state, symbol.id)]} and \n"
                             f"  Reduce({item.name!s} -> {item.rule!s})"
                         )
 
     def construct(self):
+        # we use a dictionary to maintain states creation order
         states = {self.closure(self.init_kernel()): None}
         changing = True
 
         while changing:
             changing = False
-            for state in states.copy():
+            for state in list(states.keys()):
                 for _, dot, rule in state.yield_unfinished():
                     symbol = rule[dot]
                     if symbol is EOF:
@@ -145,22 +189,44 @@ if __name__ == "__main__":
 
     from utils.parse_grammar import parse_grammar
 
+    # table = {
+    #     "x": "x",
+    #     "(": "(",
+    #     ")": ")",
+    #     ",": ",",
+    # }
+    # g = """
+    #         <S'>
+    #         <S'> -> <S>
+    #         <S> -> (<L>)
+    #         <L> -> <S>
+    #         <S> -> x
+    #         <L> -> <L>,<S>
+    # """
     table = {
-        "x": "x",
+        "+": "+",
+        "*": "*",
         "(": "(",
         ")": ")",
-        ",": ",",
     }
+
     g = """
-            <S'>
-            <S'> -> <S>
-            <S> -> (<L>)
-            <L> -> <S>
-            <S> -> x
-            <L> -> <L>,<S>
+    <E'>
+    <E'> -> <E>
+    <E> -> <E>+<T>
+    <E> -> <T>
+    <T> -> <T>*<F>
+    <T> -> <F>
+    <F> -> (<E>)
+    <F> -> integer
+    
     """
 
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
 
-    print_rich(pretty_repr(LR0ParsingTable(cfg)))
+    p = LR0ParsingTable(cfg)
+
+    p.draw_with_graphviz()
+
+    print_rich(p.to_pretty_table())

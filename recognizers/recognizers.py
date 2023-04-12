@@ -140,24 +140,29 @@ class LR0Recognizer(Recognizer):
         parsing_table = self.get_parsing_table()
         stack, token_index = [parsing_table.states[0]], 0
         while stack:
-            state = stack[-1]
-            token = tokens[token_index]
-            match parsing_table.get((state, token.id)):
+            current_state = stack[-1]
+            current_token = tokens[token_index]
+            match parsing_table.get((current_state, current_token.id)):
                 # Advance input one token; push state n on stack.
-                case Shift(state):
-                    stack.append(state)
-                    token_index += token.id != EOF.id
-                case Reduce(lhs, len_rule):
-                    stack = stack[:-len_rule]
+                # TODO: assert that current_state corresponds to the current_token
+                case Shift(current_state):
+                    stack.append(current_state)
+                    token_index += current_token.id != EOF.id
+                case Reduce(lhs, rule):
+                    stack = stack[: -len(rule)]
                     match parsing_table[(stack[-1], lhs.id)]:
-                        case Goto(state):
-                            stack.append(state)
+                        case Goto(current_state):
+                            stack.append(current_state)
                         case _:
-                            raise SyntaxError(f"Unexpected {token.id} at {token.loc}")
+                            raise SyntaxError(
+                                f"Unexpected {current_token.id} at {current_token.loc}"
+                            )
                 case Accept():
                     return True
                 case _:
-                    raise SyntaxError(f"Unexpected {token.id} at {token.loc}")
+                    raise SyntaxError(
+                        f"Unexpected {current_token.id} at {current_token.loc}"
+                    )
         raise SyntaxError(
             f"Syntax error at {tokens[token_index] if token_index < len(tokens) else EOF}"
         )
