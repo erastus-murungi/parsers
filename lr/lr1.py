@@ -1,15 +1,13 @@
+from dataclasses import dataclass
 from functools import cache
-from typing import NamedTuple
 
-from grammar.core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
-from lr.core import Reduce, LRState
-from lr.lr0 import LR0ParsingTable
+from grammar.core import EOF, NonTerminal, Terminal
+from lr.core import LRState, Reduce
+from lr.lr0 import LR0Item, LR0ParsingTable
 
 
-class LR1Item(NamedTuple):
-    name: NonTerminal
-    dot: int
-    rule: Rule
+@dataclass(frozen=True, slots=True, eq=True)
+class LR1Item(LR0Item):
     lookahead: Terminal
 
     def __repr__(self):
@@ -26,11 +24,11 @@ class LR1Item(NamedTuple):
             f"{' '.join(str(sym) for sym in self.rule[self.dot:])}          ({self.lookahead!s})"
         )
 
+    def __iter__(self):
+        yield from [self.name, self.dot, self.rule, self.lookahead]
+
     def advance(self):
         return LR1Item(self.name, self.dot + 1, self.rule, self.lookahead)
-
-    def completed(self):
-        return self.dot >= len(self.rule)
 
 
 class LR1ParsingTable(LR0ParsingTable):
@@ -54,17 +52,16 @@ class LR1ParsingTable(LR0ParsingTable):
         """
 
         items = configuration_set.copy()
-        changing = True
-        while changing:
-            changing = False
+        while True:
+            initial_closure_size = len(items)
             for _, dot, rule, lookahead in items.yield_unfinished():
-                x, beta = rule[dot], rule[dot + 1 :]
-                if isinstance(x, NonTerminal):
-                    initial_size = len(items)
-                    for gamma in self.grammar[x]:
+                b, beta = rule[dot], rule[dot + 1 :]
+                if isinstance(b, NonTerminal):
+                    for gamma in self.grammar[b]:
                         for w in self.grammar.first_sentential_form(beta + [lookahead]):
-                            items.append(LR1Item(x, 0, gamma, w))
-                    changing = len(items) != initial_size
+                            items.append(LR1Item(b, 0, gamma, w))
+            if len(items) == initial_closure_size:
+                break
         return items
 
     def compute_reduce_actions(self):
@@ -101,7 +98,6 @@ if __name__ == "__main__":
     #         <S> -> x
     #         <L> -> <L>,<S>
     # """
-
     # table = {"+": "+", "(": "(", ")": ")"}
     #
     # g = """

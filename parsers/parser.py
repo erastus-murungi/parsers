@@ -12,7 +12,7 @@ from grammar import CFG
 from grammar.core import EMPTY, EOF, NonTerminal, Symbol, Terminal
 from lalr.lalr1 import LALR1ParsingTable
 from ll.ll1 import LL1ParsingTable
-from lr.core import LRState, Shift, Reduce, Goto, Accept
+from lr.core import Accept, Goto, LRState, Reduce, Shift
 from lr.lr0 import LR0ParsingTable
 from lr.lr1 import LR1ParsingTable
 from lr.slr import SLRParsingTable
@@ -370,4 +370,4 @@ if __name__ == "__main__":
 
     tks = Tokenizer("(1+2)", table).get_tokens_no_whitespace()
     print_rich(pretty_repr(tks))
-    print_rich(pretty_repr(SLRParser(cfg).parse(tks).collapse()))
+    print_rich(pretty_repr(LR1Parser(cfg).parse(tks).collapse()))

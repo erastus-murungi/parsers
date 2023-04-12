@@ -1,15 +1,16 @@
+from dataclasses import dataclass
 from functools import cache
-from typing import NamedTuple
-
-from grammar.core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
-from lr.core import Accept, Goto, LRTable, Reduce, Shift, LRState
 
 from rich.traceback import install
+
+from grammar.core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
+from lr.core import Accept, Goto, LRState, LRTable, Reduce, Shift
 
 install(show_locals=True)
 
 
-class LR0Item(NamedTuple):
+@dataclass(frozen=True, slots=True, eq=True)
+class LR0Item:
     name: NonTerminal
     dot: int
     rule: Rule
@@ -27,6 +28,9 @@ class LR0Item(NamedTuple):
             f" . "
             f"{' '.join(str(sym) for sym in self.rule[self.dot:])}"
         )
+
+    def __iter__(self):
+        yield from [self.name, self.dot, self.rule]
 
     def advance(self):
         return LR0Item(self.name, self.dot + 1, self.rule)
@@ -117,7 +121,7 @@ class LR0ParsingTable(LRTable[LR0Item]):
         """
 
         assert sym is not EMPTY and sym is not EOF
-        kernel = LRState(cls=state.type)
+        kernel: LRState[LR0Item] = LRState(cls=state.type)
         for item in state.yield_unfinished():
             if item.rule[item.dot] == sym:
                 kernel.append(item.advance())
