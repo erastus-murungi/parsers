@@ -1,3 +1,4 @@
+from functools import cache
 from typing import NamedTuple
 
 from core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
@@ -29,8 +30,21 @@ class LR0Item(NamedTuple):
     def completed(self):
         return self.dot >= len(self.rule)
 
+    @property
+    def at_start(self):
+        return self.dot == 0
+
 
 class LR0ParsingTable(LRTable[LR0Item]):
+    def __init__(
+        self,
+        grammar,
+        *,
+        reduce: bool = False,
+    ):
+        super().__init__(grammar, reduce=reduce)
+
+    @cache
     def closure(self, state: State[LR0Item]):
         # Closure adds more items to a set of items when
         # there is a dot to the left of a non-terminal;
@@ -51,6 +65,7 @@ class LR0ParsingTable(LRTable[LR0Item]):
                     changing = len(new_items) != initial_size
         return new_items
 
+    @cache
     def goto(self, state: State[LR0Item], sym: Symbol) -> State[LR0Item]:
         # Goto is the transition function of the LR(0) automaton.
         # It takes a state and a symbol and returns the state that
@@ -65,6 +80,7 @@ class LR0ParsingTable(LRTable[LR0Item]):
                 kernel.append(item.advance())
         return self.closure(kernel)
 
+    @cache
     def init_kernel(self):
         return State[LR0Item](
             LR0Item(
@@ -101,6 +117,7 @@ class LR0ParsingTable(LRTable[LR0Item]):
                     if symbol is EOF:
                         # accept action
                         self[(state, symbol.id)] = Accept()
+                        self.accept = (state, symbol.id)
                     else:
                         # shift action
                         target = self.goto(state, symbol)
@@ -118,7 +135,8 @@ class LR0ParsingTable(LRTable[LR0Item]):
                             changing = True
 
         self.states = list(states)
-        self.compute_reduce_actions()
+        if self.reduce:
+            self.compute_reduce_actions()
 
 
 class SLRParsingTable(LR0ParsingTable):
@@ -128,7 +146,7 @@ class SLRParsingTable(LR0ParsingTable):
             for item in state.yield_finished():
                 for symbol in follow_set[item.name]:
                     if (state, symbol.id) not in self:
-                        self[(state, symbol.id)] = Reduce(item.name, item.rule)
+                        self[(state, symbol.id)] = Reduce(item.name, len(item.rule))
                     else:
                         raise ValueError(
                             f"Encountered shift/reduce conflict on \n"

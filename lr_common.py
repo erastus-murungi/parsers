@@ -1,10 +1,13 @@
 import subprocess
 import sys
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import Hashable, Iterable, Protocol, TypeVar, runtime_checkable
+from itertools import count
+from typing import Generic, Hashable, Iterable, Protocol, TypeVar, runtime_checkable
 
-from core import NonTerminal, Rule, Symbol
+from cfg import CFG
+from core import NonTerminal, Symbol
 
 FILENAME = "state_graph"
 DOT_FILEPATH = FILENAME + "." + "dot"
@@ -22,6 +25,8 @@ T = TypeVar("T", bound=Completable)
 
 
 class State(list[T]):
+    ids: dict["State", int] = defaultdict(count(1).__next__)
+
     def __init__(self, *items, cls: type[T]):
         self.type = cls
         assert all(
@@ -30,9 +35,15 @@ class State(list[T]):
         super().__init__()
         self.extend(items)
 
+    @property
+    def id(self):
+        if not self:
+            return 0
+        return State.ids[self]
+
     def append(self, completable: T) -> None:
         if not isinstance(completable, Completable):
-            raise TypeError(f"Expected EarleyItem, got {type(completable)}")
+            raise TypeError(f"Expected Completable, got {type(completable)}")
         if completable not in self:
             super().append(completable)
 
@@ -67,14 +78,14 @@ class Action(ABC):
 @dataclass(frozen=True, slots=True)
 class Reduce(Action):
     lhs: NonTerminal
-    rule: Rule
+    length: int
 
-    def __str(self):
-        return f"Reduce({self.lhs!s} -> {' '.join(str(sym) for sym in self.rule)})"
+    def __str__(self):
+        return f"Reduce({self.length})"
 
 
 @dataclass(frozen=True, slots=True)
-class Goto(Action):
+class Goto(Action, Generic[T]):
     state: State[T]
 
     def __str__(self):
@@ -87,7 +98,7 @@ class Accept(Action):
 
 
 @dataclass(frozen=True, slots=True)
-class Shift(Action):
+class Shift(Action, Generic[T]):
     state: State[T]
 
     def __str__(self):
@@ -95,11 +106,16 @@ class Shift(Action):
 
 
 class LRTable(dict[tuple[State[T], str], Action], ABC):
-    def __init__(self, grammar):
+    def __init__(self, grammar: CFG, *, reduce: bool = True):
         super().__init__()
         self.grammar = grammar
         self.states: list[State[T]] = []
+        self.reduce = reduce
+        self.accept = None
         self.construct()
+
+    def __hash__(self):
+        return id(self)
 
     @abstractmethod
     def closure(self, state: State[T]):
@@ -213,8 +229,13 @@ class LRTable(dict[tuple[State[T], str], Action], ABC):
                         f'[label="goto [{escape(edge_label)}]"];'
                     )
                     seen.add(state)
-                case Reduce(_, _):
-                    pass
+                case Reduce(name, _):
+                    # edges.append(
+                    #     f'    {hash(str(start))}:from_node -> {name!s}:from_false [arrowhead=vee, label="{rule!s}"] '
+                    # )
+                    edges.append(
+                        f'    {hash(str(start))}:from_node -> {name!s}:from_false [arrowhead=vee, label="reduce [{edge_label}]"] '
+                    )
 
         graph.extend(edges)
         graph.extend(nodes)

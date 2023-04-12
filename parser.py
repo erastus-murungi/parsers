@@ -18,7 +18,7 @@ install(show_locals=True)
 
 class AST(TypedDict):
     id: Required[str]
-    expansion: Required[list["AST"]]
+    expansion: Required[list[Union[str, "AST"]]]
 
 
 class ParseTree(NamedTuple):
@@ -26,7 +26,7 @@ class ParseTree(NamedTuple):
     expansion: list[Union["ParseTree", Token]]
 
     def collapse(self) -> AST:
-        expansion = []
+        expansion: list[AST | str] = []
         for child in self.expansion:
             if isinstance(child, Token):
                 expansion.append(child.lexeme)
@@ -43,7 +43,7 @@ class ParseTree(NamedTuple):
 
 class Parser(ABC):
     @abstractmethod
-    def parse(self, tokens: list[Token]) -> Iterator[ParseTree]:
+    def parse(self, tokens: list[Token]) -> Iterator[ParseTree] | ParseTree:
         """Parse a list of tokens into a parse tree"""
         ...
 
@@ -52,7 +52,7 @@ class LL1Parser(Parser):
     def __init__(self, grammar: CFG):
         self.grammar = grammar
 
-    def parse(self, tokens: list[Token]) -> Iterator[ParseTree]:
+    def parse(self, tokens: list[Token]) -> Iterator[ParseTree] | ParseTree:
         parsing_table = self.grammar.build_ll1_parsing_table()
         root = ParseTree(self.grammar.start_symbol, [])
         stack, token_index = [
@@ -111,7 +111,7 @@ class EarleyParser(Parser):
             start_index: int,
             left,
             path_end_index: int,
-        ) -> list[EarleyItem]:
+        ) -> Iterator[list[EarleyItem | Token]]:
             # if we are at a leaf
             if not left:
                 if path_end_index == start_index:
@@ -159,7 +159,7 @@ class EarleyParser(Parser):
                         item_start_index = item.explicit_index
                 for children in product(*children_possibilities):
                     assert len(children) == len(path_root.rule)
-                    yield ParseTree(path_root.name, children)
+                    yield ParseTree(path_root.name, list(children))
 
         n_tokens = len(tokens) - 1  # ignore EOF
         for earley_item in parse_forest[0]:

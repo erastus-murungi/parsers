@@ -56,7 +56,7 @@ def gen_early_sets(grammar, tokens: list[Token]) -> list[State[EarleyItem]]:
                 if isinstance(right, Terminal):
                     if pos + 1 < len(earley_sets) and right.matches(token):
                         earley_sets[pos + 1].append(earley_set[current_pos].advance())
-                else:
+                elif isinstance(right, NonTerminal):
                     if right in nullable_set:
                         earley_set.append(earley_set[current_pos].advance())
 

@@ -5,6 +5,7 @@ from typing import cast
 from cfg import CFG
 from core import EMPTY, EOF, NonTerminal, Rule, Terminal
 from earley import gen_early_sets
+from lalr import LALR1ParsingTable
 from lr0 import Accept, Goto, LR0ParsingTable, Reduce, Shift, SLRParsingTable
 from lr1 import LR1ParsingTable
 from tokenizer import Token
@@ -144,8 +145,8 @@ class LR0Recognizer(Recognizer):
                 case Shift(state):
                     stack.append(state)
                     token_index += token.id != EOF.id
-                case Reduce(lhs, rule):
-                    stack = stack[: -len(rule)]
+                case Reduce(lhs, len_rule):
+                    stack = stack[:-len_rule]
                     match parsing_table[(stack[-1], lhs.id)]:
                         case Goto(state):
                             stack.append(state)
@@ -168,6 +169,11 @@ class SLRRecognizer(LR0Recognizer):
 class LR1Recognizer(LR0Recognizer):
     def get_parsing_table(self):
         return LR1ParsingTable(self.grammar)
+
+
+class LALR1Recognizer(LR0Recognizer):
+    def get_parsing_table(self):
+        return LALR1ParsingTable(self.grammar)
 
 
 if __name__ == "__main__":
@@ -196,6 +202,8 @@ if __name__ == "__main__":
         ";": ";",
         "(": "(",
         ")": ")",
+        "=": "=",
+        "*": "*",
     }
     #
     # g = """
@@ -205,11 +213,18 @@ if __name__ == "__main__":
     #     <T> -> (<E>) | integer
     # """
 
+    # g = """
+    #     <S>
+    #     <S> -> <E>
+    #     <E> -> <T> | <T> + <E>
+    #     <T> -> (<E>) | integer
+    # """
     g = """
         <S>
         <S> -> <E>
-        <E> -> <T> | <T> + <E>
-        <T> -> (<E>) | integer
+        <E> -> <L> = <R> | <R>
+        <L> -> char | *<R>
+        <R> -> <L>
     """
 
     # table = {
@@ -228,9 +243,10 @@ if __name__ == "__main__":
 
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
-    p = SLRParsingTable(cfg)
+    p = LR0ParsingTable(cfg, reduce=False)
     print_rich(pretty_repr(p.states))
     print_rich(pretty_repr(p))
+    p.draw_with_graphviz()
 
     # p.draw_with_graphviz()
     print_rich(pretty_repr(LR1Recognizer(cfg).recognizes(tks)))

@@ -1,3 +1,4 @@
+from functools import cache
 from typing import NamedTuple
 
 from core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
@@ -43,6 +44,7 @@ class LR1ParsingTable(LRTable[LR1Item]):
             cls=LR1Item,
         )
 
+    @cache
     def closure(self, configuration_set: State[LR1Item]) -> State[LR1Item]:
         """
         Compute the closure of LR(1) item set
@@ -64,6 +66,7 @@ class LR1ParsingTable(LRTable[LR1Item]):
                     changing = len(items) != initial_size
         return items
 
+    @cache
     def goto(self, configuration_set: State[LR1Item], sym: Symbol) -> State[LR1Item]:
         """Compute the goto set of LR(1) item set"""
         assert sym is not EMPTY
@@ -109,7 +112,7 @@ class LR1ParsingTable(LRTable[LR1Item]):
                         self[(state_i, EOF.id)] = Accept()
                     elif item.name != self.grammar.start_symbol:
                         self[(state_i, item.lookahead.id)] = Reduce(
-                            item.name, item.rule
+                            item.name, len(item.rule)
                         )
                 else:
                     a = item.rule[item.dot]
