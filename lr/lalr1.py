@@ -2,8 +2,7 @@ from collections import defaultdict
 
 from more_itertools import one
 
-from grammar import CFG
-from grammar.core import NonTerminal, Rule, Terminal
+from grammar import CFG, NonTerminal, Rule, Terminal
 from lr.core import Goto, LRState, Reduce, Shift, T
 from lr.lr0 import LR0Item, LR0ParsingTable
 

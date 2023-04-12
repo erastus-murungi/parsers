@@ -3,7 +3,7 @@ from functools import cache
 
 from rich.traceback import install
 
-from grammar.core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
+from grammar import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
 from lr.core import Accept, Goto, LRState, LRTable, Reduce, Shift
 
 install(show_locals=True)

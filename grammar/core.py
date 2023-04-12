@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Callable, Iterable, Iterator, Optional, Sequence, TypeGuard, cast
 
-from utils.tokenizer import Token
+from utils import Token
 
 
 class Symbol(ABC):

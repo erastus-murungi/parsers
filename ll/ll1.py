@@ -2,8 +2,7 @@ from collections import defaultdict
 
 from prettytable import PrettyTable
 
-from grammar import CFG
-from grammar.core import EMPTY, NonTerminal, Rule
+from grammar import CFG, EMPTY, NonTerminal, Rule
 
 
 class LL1ParsingTable(dict[tuple[NonTerminal, str], Rule]):

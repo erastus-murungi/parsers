@@ -7,16 +7,21 @@ from rich import print as print_rich
 from rich.pretty import pretty_repr
 from rich.traceback import install
 
-from general.earley import EarleyItem, gen_early_sets
-from grammar import CFG
-from grammar.core import EMPTY, EOF, NonTerminal, Symbol, Terminal
-from lalr.lalr1 import LALR1ParsingTable
-from ll.ll1 import LL1ParsingTable
-from lr.core import Accept, Goto, LRState, Reduce, Shift
-from lr.lr0 import LR0ParsingTable
-from lr.lr1 import LR1ParsingTable
-from lr.slr import SLRParsingTable
-from utils.tokenizer import Token, Tokenizer
+from earley import EarleyItem, gen_early_sets
+from grammar import CFG, EMPTY, EOF, NonTerminal, Symbol, Terminal
+from ll import LL1ParsingTable
+from lr import (
+    Accept,
+    Goto,
+    LALR1ParsingTable,
+    LR0ParsingTable,
+    LR1ParsingTable,
+    LRState,
+    Reduce,
+    Shift,
+    SLRParsingTable,
+)
+from utils import Token, Tokenizer
 
 install(show_locals=True)
 
@@ -101,7 +106,7 @@ class EarleyParser(Parser):
             for earley_set in gen_early_sets(self.grammar, tokens)
         ]
 
-        # reverse the general sets
+        # reverse the earley sets
         parse_forest: list[list[EarleyItem]] = [[] for _ in range(len(tokens))]
         for end_index, earley_set in enumerate(earley_sets):
             for earley_item in earley_set:

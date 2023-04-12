@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from functools import cache
 
-from grammar.core import EOF, NonTerminal, Terminal
+from grammar import EOF, NonTerminal, Terminal
 from lr.core import LRState, Reduce
 from lr.lr0 import LR0Item, LR0ParsingTable
 

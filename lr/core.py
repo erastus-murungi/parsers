@@ -8,8 +8,7 @@ from typing import Generic, Hashable, Iterable, Protocol, TypeVar, runtime_check
 
 from prettytable import PrettyTable
 
-from grammar import CFG
-from grammar.core import NonTerminal, Symbol
+from grammar import CFG, NonTerminal, Symbol
 
 FILENAME = "./graphs/state_graph"
 DOT_FILEPATH = FILENAME + "." + "dot"

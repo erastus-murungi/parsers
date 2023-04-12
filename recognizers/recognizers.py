@@ -2,14 +2,19 @@ from abc import ABC, abstractmethod
 from collections import deque
 from typing import cast
 
-from general import gen_early_sets
-from grammar import CFG
-from grammar.core import EMPTY, EOF, NonTerminal, Rule, Terminal
-from lalr.lalr1 import LALR1ParsingTable
-from ll.ll1 import LL1ParsingTable
-from lr.core import Accept, Goto, Reduce, Shift
-from lr.lr1 import LR1ParsingTable
-from lr.slr import LR0ParsingTable, SLRParsingTable
+from earley import gen_early_sets
+from grammar import CFG, EMPTY, EOF, NonTerminal, Rule, Terminal
+from ll import LL1ParsingTable
+from lr import (
+    Accept,
+    Goto,
+    LALR1ParsingTable,
+    LR0ParsingTable,
+    LR1ParsingTable,
+    Reduce,
+    Shift,
+    SLRParsingTable,
+)
 from utils.tokenizer import Token, Tokenizer
 
 MAX_ITERATIONS = 1000_000
