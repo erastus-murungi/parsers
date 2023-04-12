@@ -3,7 +3,7 @@ from functools import cache
 
 from rich.traceback import install
 
-from grammar import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
+from grammar import EMPTY, EOF, Expansion, NonTerminal, Symbol, Terminal
 from lr.core import Accept, Goto, LRState, LRTable, Reduce, Shift
 
 install(show_locals=True)
@@ -13,7 +13,7 @@ install(show_locals=True)
 class LR0Item:
     name: NonTerminal
     dot: int
-    rule: Rule
+    rule: Expansion
 
     def __repr__(self):
         return (
@@ -67,7 +67,7 @@ class LR0ParsingTable(LRTable[LR0Item]):
         Kernel items are used to generate closure items.
         """
 
-        return (item.name == self.grammar.start_symbol and item.at_start) or (
+        return (item.name == self.grammar.start and item.at_start) or (
             not item.at_start
         )
 
@@ -131,9 +131,9 @@ class LR0ParsingTable(LRTable[LR0Item]):
     def init_kernel(self):
         return LRState[LR0Item](
             LR0Item(
-                self.grammar.start_symbol,
+                self.grammar.start,
                 0,
-                self.grammar[self.grammar.start_symbol][0].append_marker(EOF),
+                self.grammar[self.grammar.start][0].append_marker(EOF),
             ),
             cls=LR0Item,
         )
@@ -142,13 +142,13 @@ class LR0ParsingTable(LRTable[LR0Item]):
         for state in self.states:
             for item in state.yield_finished():
                 for symbol in self.grammar.terminals:
-                    if (state, symbol.id) not in self:
-                        self[(state, symbol.id)] = Reduce(item.name, len(item.rule))
+                    if (state, symbol.name) not in self:
+                        self[(state, symbol.name)] = Reduce(item.name, len(item.rule))
                     else:
                         raise ValueError(
                             f"Encountered conflict on \n"
-                            f" state: {str(state)}\n and symbol: {symbol.id}\n"
-                            f"  {self[(state, symbol.id)]} and \n"
+                            f" state: {str(state)}\n and symbol: {symbol.name}\n"
+                            f"  {self[(state, symbol.name)]} and \n"
                             f"  Reduce({item.name}, {len(item.rule)})"
                         )
 
@@ -165,8 +165,8 @@ class LR0ParsingTable(LRTable[LR0Item]):
                     symbol = rule[dot]
                     if symbol is EOF:
                         # accept action
-                        self[(state, symbol.id)] = Accept()
-                        self.accept = (state, symbol.id)
+                        self[(state, symbol.name)] = Accept()
+                        self.accept = (state, symbol.name)
                     else:
                         # shift action
                         target = self.goto(state, symbol)
@@ -179,8 +179,8 @@ class LR0ParsingTable(LRTable[LR0Item]):
                             if isinstance(symbol, Terminal)
                             else Goto(target)
                         )
-                        if action != self.get((state, symbol.id), None):
-                            self[(state, symbol.id)] = action
+                        if action != self.get((state, symbol.name), None):
+                            self[(state, symbol.name)] = action
                             changing = True
 
         self.states = list(states)

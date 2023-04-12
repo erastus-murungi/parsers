@@ -35,9 +35,9 @@ class LR1ParsingTable(LR0ParsingTable):
     def init_kernel(self):
         return LRState[LR1Item](
             LR1Item(
-                self.grammar.start_symbol,
+                self.grammar.start,
                 0,
-                self.grammar[self.grammar.start_symbol][0].append_marker(EOF),
+                self.grammar[self.grammar.start][0].append_marker(EOF),
                 EOF,  # could be anything
             ),
             cls=LR1Item,
@@ -58,7 +58,7 @@ class LR1ParsingTable(LR0ParsingTable):
                 b, beta = rule[dot], rule[dot + 1 :]
                 if isinstance(b, NonTerminal):
                     for gamma in self.grammar[b]:
-                        for w in self.grammar.first_sentential_form(beta + [lookahead]):
+                        for w in self.grammar.first(beta + [lookahead]):
                             items.append(LR1Item(b, 0, gamma, w))
             if len(items) == initial_closure_size:
                 break
@@ -67,13 +67,13 @@ class LR1ParsingTable(LR0ParsingTable):
     def compute_reduce_actions(self):
         for state in self.states:
             for name, _, rule, lookahead in state.yield_finished():
-                if (state, lookahead.id) not in self:
-                    self[(state, lookahead.id)] = Reduce(name, len(rule))
+                if (state, lookahead.name) not in self:
+                    self[(state, lookahead.name)] = Reduce(name, len(rule))
                 else:
                     raise ValueError(
                         f"Encountered shift/reduce conflict on \n"
-                        f" state: {str(state)}\n and symbol: {lookahead.id}\n"
-                        f"  {self[(state, lookahead.id)]} and \n"
+                        f" state: {str(state)}\n and symbol: {lookahead.name}\n"
+                        f"  {self[(state, lookahead.name)]} and \n"
                         f"  Reduce({name!s} -> {rule!s})"
                     )
 

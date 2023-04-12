@@ -267,8 +267,8 @@ class LRTable(dict[tuple[LRState[T], str], Action], ABC):
     def to_pretty_table(self) -> str:
         syms: list[str] = (
             ["State"]
-            + [terminal.id for terminal in self.grammar.terminals]
-            + [terminal.id for terminal in self.grammar.non_terminals]
+            + [terminal.name for terminal in self.grammar.terminals]
+            + [terminal.name for terminal in self.grammar.non_terminals]
         )
         pretty_table = PrettyTable()
         pretty_table.field_names = syms
@@ -283,9 +283,9 @@ class LRTable(dict[tuple[LRState[T], str], Action], ABC):
             for sym in syms[1:]:
                 match edge_label2action.get(sym, None):
                     case Goto(state):
-                        row.append(f"goto {state.id}")
+                        row.append(f"goto {state.name}")
                     case Shift(state):
-                        row.append(f"shift {state.id}")
+                        row.append(f"shift {state.name}")
                     case Reduce(name, len_rule):
                         row.append(f"reduce {name!s}{{{len_rule!s}}})")
                     case Accept():

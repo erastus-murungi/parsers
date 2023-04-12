@@ -1,7 +1,7 @@
 import re
 from typing import Final, Iterator
 
-from grammar import CFG, NonTerminal, Rule, Terminal
+from grammar import CFG, Expansion, NonTerminal, Terminal
 
 NON_TERMINAL_REGEX: Final[str] = r"<([\w\']+)>"
 SEPARATOR = r"->"
@@ -49,7 +49,7 @@ def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> CFG:
 
         for rule_str in rhs_str.split("|"):
 
-            rule = Rule()
+            rule = Expansion()
 
             for lexeme in iter_symbol_tokens(rule_str):
                 if lexeme == "<>":

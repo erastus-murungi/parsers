@@ -81,7 +81,7 @@ if __name__ == "__main__":
     # assert BFSTopDownLeftmostRecognizer(cfg).recognizes(tks)
     assert DFSTopDownLeftmostRecognizer(cfg).recognizes(tks)
 
-    print_rich(pretty_repr(cfg.nullable()))
-    print_rich(pretty_repr(cfg.first()))
-    print_rich(pretty_repr(cfg.follow()))
+    print_rich(pretty_repr(cfg.gen_nullable()))
+    print_rich(pretty_repr(cfg.gen_first()))
+    print_rich(pretty_repr(cfg.gen_follow_set()))
     assert LL1Recognizer(cfg).recognizes(tks)

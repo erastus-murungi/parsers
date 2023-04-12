@@ -44,11 +44,11 @@ class ParseTree(NamedTuple):
                 child_collapse = child.collapse()
                 assert "id" in child_collapse
                 if child_collapse:
-                    if len(child_collapse["expansion"]) == 1:
+                    if len(child_collapse["expansion"]) <= 1:
                         expansion.extend(child_collapse["expansion"])
                     else:
                         expansion.append(child_collapse)
-        return {"id": self.id.id, "expansion": expansion}
+        return {"id": self.id.name, "expansion": expansion}
 
 
 class Parser(ABC):
@@ -64,10 +64,10 @@ class Parser(ABC):
 class LL1Parser(Parser):
     def parse(self, tokens: list[Token]) -> Iterator[ParseTree] | ParseTree:
         parsing_table = LL1ParsingTable(self.grammar)
-        root = ParseTree(self.grammar.start_symbol, [])
+        root = ParseTree(self.grammar.start, [])
         stack, token_index = [
             (EOF, root),
-            (self.grammar.start_symbol, root),
+            (self.grammar.start, root),
         ], 0
 
         while stack:
@@ -78,7 +78,7 @@ class LL1Parser(Parser):
                     root.expansion.append(token)
                     token_index += symbol is not EMPTY
                 else:
-                    raise SyntaxError(f"Expected {symbol.id} but got {token}")
+                    raise SyntaxError(f"Expected {symbol.name} but got {token}")
             else:
                 non_terminal = cast(NonTerminal, symbol)
                 if (rule := parsing_table.get((non_terminal, token.id))) is not None:
@@ -89,11 +89,10 @@ class LL1Parser(Parser):
                     raise SyntaxError(
                         f"At position {token.loc}, "
                         f"was parsing {symbol!s} "
-                        f'expecting one of ({", ".join(terminal.id for terminal in self.grammar.first()[symbol])}), '
+                        f'expecting one of ({", ".join(terminal.name for terminal in self.grammar.gen_first()[symbol])}), '
                         f"but found {token.id!s}"
                     )
         assert token_index >= len(tokens)
-        print_rich(pretty_repr(root.collapse()))
         return root
 
 
@@ -172,7 +171,7 @@ class EarleyParser(Parser):
         for earley_item in parse_forest[0]:
             if (
                 earley_item.explicit_index == n_tokens
-                and earley_item.name == self.grammar.start_symbol
+                and earley_item.name == self.grammar.start
             ):
                 for tree in build_tree(earley_item, 0, n_tokens):
                     yield tree
@@ -197,10 +196,10 @@ class LR0Parser(Parser):
                 case Shift(current_state):
                     stack.append(current_state)
                     tree.append(current_token)
-                    token_index += current_token.id != EOF.id
+                    token_index += current_token.id != EOF.name
                 case Reduce(lhs, len_rhs):
                     stack = stack[:-len_rhs]
-                    match parsing_table[(stack[-1], lhs.id)]:
+                    match parsing_table[(stack[-1], lhs.name)]:
                         case Goto(current_state):
                             stack.append(current_state)
                             tree_top = tree[-len_rhs:]
@@ -238,29 +237,28 @@ class LALR1Parser(LR0Parser):
 if __name__ == "__main__":
     from utils.parse_grammar import parse_grammar
 
-    g = """
-        <program>
-        <program> -> <expression>
-        <expression> -> <term> | <term> <add_op> <expression>
-        <term> -> <factor> | <factor> <mult_op> <term>
-        <factor> -> <power> | <power> ^ <factor>
-        <power> -> <number> | ( <expression> )
-        <number> -> <digit> | <digit> <number>
-        <add_op> -> + | -
-        <mult_op> -> * | /
-        <digit> -> integer | float
-    """
-
-    table = {
-        "+": "+",
-        "-": "-",
-        "*": "*",
-        "/": "/",
-        "(": "(",
-        ")": ")",
-        "^": "^",
-    }
-
+    # g = """
+    #     <program>
+    #     <program> -> <expression>
+    #     <expression> -> <term> | <term> <add_op> <expression>
+    #     <term> -> <factor> | <factor> <mult_op> <term>
+    #     <factor> -> <power> | <power> ^ <factor>
+    #     <power> -> <number> | ( <expression> )
+    #     <number> -> <digit> | <digit> <number>
+    #     <add_op> -> + | -
+    #     <mult_op> -> * | /
+    #     <digit> -> integer | float
+    # """
+    #
+    # table = {
+    #     "+": "+",
+    #     "-": "-",
+    #     "*": "*",
+    #     "/": "/",
+    #     "(": "(",
+    #     ")": ")",
+    #     "^": "^",
+    # }
     # table = {
     #     "(": "(",
     #     ")": ")",
@@ -310,7 +308,6 @@ if __name__ == "__main__":
     #     <S> -> <A>
     #     <A> -> <A> + <A> | <A> − <A> | a
     # """
-
     # table = {
     #     "(": "(",
     #     ")": ")",
@@ -325,7 +322,6 @@ if __name__ == "__main__":
     #      <E> -> (<E> <Op> <E>)
     #      <Op> -> + | *
     # """
-
     # g = """
     # <G>
     # <G> -> <A>
@@ -334,7 +330,6 @@ if __name__ == "__main__":
     #
     # """
     # table = {}
-
     # cfg = parse_grammar(g, table)
     # print_rich(pretty_repr(cfg))
     #
@@ -345,8 +340,8 @@ if __name__ == "__main__":
     # print_rich(pretty_repr(tks))
     #
     # earley_parser = EarleyParser(cfg)
-    # print_rich(pretty_repr(list(earley_parser.parse(tks))))
-
+    # trees = list(earley_parser.parse(tks))
+    # print_rich(pretty_repr([t.collapse() for t in trees]))
     # table = {
     #     '+': '+',
     #     '*': '*',
@@ -365,14 +360,39 @@ if __name__ == "__main__":
     # <F> -> integer
     #
     # """
+    #
+    # cfg = parse_grammar(g, table)
+    # print_rich(pretty_repr(cfg))
+    #
+    # # p = SLRParsingTable(cfg)
+    # # p.draw_with_graphviz()
+    # # print_rich(p.to_pretty_table())
+    #
+    # tks = Tokenizer("(1+2)", table).get_tokens_no_whitespace()
+    # print_rich(pretty_repr(tks))
+    # print_rich(pretty_repr(LR1Parser(cfg).parse(tks).collapse()))
+
+    table = {
+        "(": "(",
+        ")": ")",
+        "+": "+",
+        "*": "*",
+    }
+
+    g = """
+    <E>
+    <E> -> <T> <E'>
+    <E'> -> + <T> <E'> | <>
+    <T> -> <F> <T'>
+    <T'> -> * <F> <T'> | <>
+    <F> -> ( <E> ) | integer
+    
+    """
 
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
 
-    # p = SLRParsingTable(cfg)
-    # p.draw_with_graphviz()
-    # print_rich(p.to_pretty_table())
-
+    print_rich(pretty_repr(cfg.gen_nullable()))
+    print_rich(pretty_repr(cfg.gen_follow_set()))
     tks = Tokenizer("(1+2)", table).get_tokens_no_whitespace()
-    print_rich(pretty_repr(tks))
-    print_rich(pretty_repr(LR1Parser(cfg).parse(tks).collapse()))
+    print_rich(pretty_repr(LL1Parser(cfg).parse(tks).collapse()))

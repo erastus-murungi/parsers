@@ -3,7 +3,7 @@ from collections import deque
 from typing import cast
 
 from earley import gen_early_sets
-from grammar import CFG, EMPTY, EOF, NonTerminal, Rule, Terminal
+from grammar import CFG, EMPTY, EOF, Expansion, NonTerminal, Terminal
 from ll import LL1ParsingTable
 from lr import (
     Accept,
@@ -35,9 +35,9 @@ class Recognizer(ABC):
 
 class BFSTopDownLeftmostRecognizer(Recognizer):
     def recognizes(self, tokens: list[Token]) -> bool:
-        rules: deque[Rule] = deque([Rule([self.grammar.start_symbol, EOF])])
-        seen: set[Rule] = set()
-        nullable_set = self.grammar.nullable()
+        rules: deque[Expansion] = deque([Expansion([self.grammar.start, EOF])])
+        seen: set[Expansion] = set()
+        nullable_set = self.grammar.gen_nullable()
 
         n_iters = 0
         while rules and n_iters < MAX_ITERATIONS:
@@ -64,9 +64,9 @@ class BFSTopDownLeftmostRecognizer(Recognizer):
 
 class DFSTopDownLeftmostRecognizer(Recognizer):
     def recognizes(self, tokens: list[Token]) -> bool:
-        rules: list[Rule] = [Rule([self.grammar.start_symbol, EOF])]
-        seen: set[Rule] = set()
-        nullable_set = self.grammar.nullable()
+        rules: list[Expansion] = [Expansion([self.grammar.start, EOF])]
+        seen: set[Expansion] = set()
+        nullable_set = self.grammar.gen_nullable()
 
         n_iters = 0
         while rules and n_iters < MAX_ITERATIONS:
@@ -97,7 +97,7 @@ class DFSTopDownLeftmostRecognizer(Recognizer):
 class LL1Recognizer(Recognizer):
     def recognizes(self, tokens: list[Token]) -> bool:
         parsing_table = LL1ParsingTable(self.grammar)
-        stack, token_index = [EOF, self.grammar.start_symbol], 0
+        stack, token_index = [EOF, self.grammar.start], 0
 
         while stack:
             symbol = stack.pop()
@@ -106,7 +106,7 @@ class LL1Recognizer(Recognizer):
                 if symbol.matches(token):
                     token_index += symbol is not EMPTY
                 else:
-                    raise SyntaxError(f"Expected {symbol.id} but got {token}")
+                    raise SyntaxError(f"Expected {symbol.name} but got {token}")
             else:
                 non_terminal = cast(NonTerminal, symbol)
                 if (rule := parsing_table.get((non_terminal, token.id))) is not None:
@@ -115,7 +115,7 @@ class LL1Recognizer(Recognizer):
                     raise SyntaxError(
                         f"At position {token.loc}, "
                         f"was parsing {symbol!s} "
-                        f'expecting one of ({", ".join(terminal.id for terminal in self.grammar.first()[symbol])}), '
+                        f'expecting one of ({", ".join(terminal.name for terminal in self.grammar.gen_first()[symbol])}), '
                         f"but found {token.id!s}"
                     )
         assert token_index >= len(tokens)
@@ -132,7 +132,7 @@ class EarleyRecognizer(Recognizer):
         return any(
             item.dot == len(item.rule)
             and item.explicit_index == 0
-            and item.name == self.grammar.start_symbol
+            and item.name == self.grammar.start
             for item in earley_sets[-1]
         )
 
@@ -152,10 +152,10 @@ class LR0Recognizer(Recognizer):
                 # TODO: assert that current_state corresponds to the current_token
                 case Shift(current_state):
                     stack.append(current_state)
-                    token_index += current_token.id != EOF.id
+                    token_index += current_token.id != EOF.name
                 case Reduce(lhs, len_rhs):
                     stack = stack[:-len_rhs]
-                    match parsing_table[(stack[-1], lhs.id)]:
+                    match parsing_table[(stack[-1], lhs.name)]:
                         case Goto(current_state):
                             stack.append(current_state)
                         case _:

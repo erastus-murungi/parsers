@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from more_itertools import one
 
-from grammar import CFG, NonTerminal, Rule, Terminal
+from grammar import CFG, Expansion, NonTerminal, Terminal
 from lr.core import Goto, LRState, Reduce, Shift, T
 from lr.lr0 import LR0Item, LR0ParsingTable
 
@@ -29,13 +29,13 @@ class LALR1ParsingTable(LR0ParsingTable):
             for item in state.yield_finished():
                 lookahead = self.lookaheads[state][item]
                 for symbol in lookahead:
-                    if (state, symbol.id) not in self:
-                        self[(state, symbol.id)] = Reduce(item.name, len(item.rule))
+                    if (state, symbol.name) not in self:
+                        self[(state, symbol.name)] = Reduce(item.name, len(item.rule))
                     else:
                         raise ValueError(
                             f"Encountered conflict on \n"
-                            f" state: {str(state)}\n and symbol: {symbol.id}\n"
-                            f"  {self[(state, symbol.id)]} and \n"
+                            f" state: {str(state)}\n and symbol: {symbol.name}\n"
+                            f"  {self[(state, symbol.name)]} and \n"
                             f"  {Reduce(item.name, len(item.rule))}"
                         )
 
@@ -44,7 +44,7 @@ class LALR1ParsingTable(LR0ParsingTable):
     ) -> tuple[CFG, dict[LRState, dict[NonTerminal, AugmentedSymbol]]]:
         augmented_grammar = CFG(
             start_symbol=AugmentedSymbol(
-                self.grammar.start_symbol, self.states[0], LRState[LR0Item](cls=LR0Item)
+                self.grammar.start, self.states[0], LRState[LR0Item](cls=LR0Item)
             )
         )
 
@@ -55,15 +55,15 @@ class LALR1ParsingTable(LR0ParsingTable):
                 if item.at_start:
                     (name, dot, rule) = item
                     # trace out the path of this rule
-                    augmented_rule = Rule()
+                    augmented_rule = Expansion()
                     new_name = AugmentedSymbol(
                         name, start_state, self.goto(start_state, name)
                     )
                     current_state = start_state
                     for symbol in rule:
-                        if (current_state, symbol.id) == self.accept:
+                        if (current_state, symbol.name) == self.accept:
                             continue
-                        match self[(current_state, symbol.id)]:
+                        match self[(current_state, symbol.name)]:
                             case Goto(next_state) | Shift(next_state):
                                 if isinstance(symbol, NonTerminal):
                                     augmented_rule.append(
@@ -92,7 +92,7 @@ class LALR1ParsingTable(LR0ParsingTable):
                 and item.rule == current_item.rule
                 and (
                     item.completed()
-                    or (item.rule[item.dot] and item.name == self.grammar.start_symbol)
+                    or (item.rule[item.dot] and item.name == self.grammar.start)
                 )
             ),
             too_short=ValueError(f"No completable item found in: {current_state}"),
@@ -105,7 +105,7 @@ class LALR1ParsingTable(LR0ParsingTable):
         # print_rich(pretty_repr(State.ids))
         # print_rich(pretty_repr(augmented_grammar.follow()))
 
-        augmented_follow = augmented_grammar.follow()
+        augmented_follow = augmented_grammar.gen_follow_set()
         lookaheads: dict[LRState, dict[LR0Item, set[Terminal]]] = defaultdict(
             lambda: defaultdict(set)
         )
@@ -115,9 +115,9 @@ class LALR1ParsingTable(LR0ParsingTable):
                 if current_item.at_start:
                     current_state = start_state
                     for symbol in current_item.rule:
-                        if (current_state, symbol.id) == self.accept:
+                        if (current_state, symbol.name) == self.accept:
                             continue
-                        match self[(current_state, symbol.id)]:
+                        match self[(current_state, symbol.name)]:
                             case Goto(next_state) | Shift(next_state):
                                 current_state = next_state
                             case _:

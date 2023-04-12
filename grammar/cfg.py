@@ -1,41 +1,57 @@
 from collections import defaultdict
-from typing import Optional, Sequence, cast
+from functools import lru_cache
+from typing import Sequence
 
 from .core import (
     EMPTY,
     EOF,
     Definition,
+    Expansion,
     FirstSet,
     FollowSet,
     NonTerminal,
     NullableSet,
-    Rule,
     Symbol,
     Terminal,
 )
 
 
+def update_set(set1, set2):
+    if not set2 or set1 > set2:
+        return False
+
+    copy = set(set1)
+    set1 |= set2
+    return set1 != copy
+
+
 class CFG(dict[NonTerminal, Definition]):
+    """
+    Notes: https://fileadmin.cs.lth.se/cs/Education/EDAN65/2020/lectures/L05A.pdf
+    """
+
     __slots__ = (
-        "_start_symbol",
+        "_start",
         "_terminals",
         "_current_time",
-        "_caches",
     )
 
     def __init__(self, start_symbol: NonTerminal):
         super().__init__()
-        self._start_symbol: NonTerminal = start_symbol
+        self._start: NonTerminal = start_symbol
         self._terminals: set[Terminal] = {EOF}
         self._current_time = 0
-        self._caches: dict[str, tuple[int, set[Symbol] | FollowSet | FirstSet]] = {}
+
+    def __hash__(self):
+        unique_print = (id(self), self._current_time)
+        return hash(unique_print)
 
     def __len__(self):
         return super().__len__() - 1
 
     @property
-    def start_symbol(self) -> NonTerminal:
-        return self._start_symbol
+    def start(self) -> NonTerminal:
+        return self._start
 
     @property
     def non_terminals(self) -> set[NonTerminal]:
@@ -45,167 +61,119 @@ class CFG(dict[NonTerminal, Definition]):
     def terminals(self) -> set[Terminal]:
         return self._terminals.copy()
 
-    def add_rule(self, rhs: NonTerminal, rule: Rule) -> None:
-        assert isinstance(rhs, NonTerminal)
-        if EOF in rule:
+    def add_rule(self, origin: NonTerminal, expansion: Expansion) -> None:
+        assert isinstance(origin, NonTerminal)
+        if EOF in expansion:
             raise ValueError(
                 "you are not allowed to explicit add an EOF token, "
                 "it is implicitly added by the grammar object"
             )
-        if EMPTY in rule:
+        if EMPTY in expansion:
             raise ValueError(
                 "you are not allowed to explicit add a sentinel, "
                 "pass in empty SententialForm instead e.g "
                 "`add_rule(var, Rule([]))`"
             )
 
-        if rhs == self._start_symbol:
-            if rhs in self and len(self[rhs]) > 0:
+        if origin == self._start:
+            if origin in self and len(self[origin]) > 0:
                 raise ValueError(
                     "you are not allowed to add a rule of the form "
                     f"`<START> => rule1 | rule2 | rule3` because it is ambiguous\n"
                     f"The start symbol should have only one production rule, implicitly by an EOF token"
                 )
             else:
-                super().__setitem__(rhs, Definition([rule]))
+                super().__setitem__(origin, Definition([expansion]))
         else:
             self._terminals.update(
-                (symbol for symbol in rule if isinstance(symbol, Terminal))
+                (symbol for symbol in expansion if isinstance(symbol, Terminal))
             )
-            if rhs not in self:
-                super().__setitem__(rhs, Definition())
-            if len(rule) == 0:
-                self[rhs].append(rule.append_marker(EMPTY))
+            if origin not in self:
+                super().__setitem__(origin, Definition())
+            if len(expansion) == 0:
+                self[origin].append(expansion.append_marker(EMPTY))
             else:
-                self[rhs].append(rule)
+                self[origin].append(expansion)
         self._current_time += 1
 
-    def add_definition(self, rhs: NonTerminal, definition: Definition) -> None:
-        self[rhs] = definition
+    def add_definition(self, origin: NonTerminal, definition: Definition) -> None:
+        if origin in self:
+            raise ValueError(
+                "you are not allowed overwrite a definition that is already in the grammar"
+            )
+        self[origin] = definition
+        self._current_time += 1
 
     def __repr__(self) -> str:
         return "\n".join(
             f"{repr(rhs)} => {repr(definition)}" for rhs, definition in self.items()
         )
 
-    def get_cached(
-        self, function_name: str
-    ) -> Optional[set[Symbol] | FollowSet | FirstSet]:
-        if function_name not in self._caches:
-            return None
-        compute_time, cached = self._caches[function_name]
-        if compute_time == self._current_time:
-            return cached
-        return None
+    @lru_cache(maxsize=1)  # only remember the last nullable set
+    def gen_nullable(self) -> NullableSet:
+        NULLABLE: NullableSet = {EMPTY}
 
-    def cache(self, function_name: str, data):
-        self._caches[function_name] = (self._current_time, data)
+        changed = True
+        while changed:
+            changed = False
+            for origin, expansions in self.items():
+                for expansion in expansions:
+                    if set(expansion) <= NULLABLE:
+                        if update_set(NULLABLE, {origin}):
+                            changed = True
+                            break  # move on to the next origin
+        return NULLABLE
 
-    def is_nullable_sentential_form(
-        self,
-        sentential_form: Rule,
-        nullable_set: Optional[set[Symbol]] = None,
-    ) -> bool:
-        """https://fileadmin.cs.lth.se/cs/Education/EDAN65/2020/lectures/L05A.pdf"""
-        if nullable_set is None:
-            nullable_set = self.nullable()
-        return all(sym in nullable_set for sym in sentential_form)
-
-    def nullable(self, cache_key="nullable") -> NullableSet:
-        """https://fileadmin.cs.lth.se/cs/Education/EDAN65/2020/lectures/L05A.pdf"""
-
-        if (cached := self.get_cached(cache_key)) is not None:
-            return cast(set[Symbol], cached)
-
-        nullable_set: NullableSet = {EMPTY}
-
-        num_nullable = 0
-        while True:
-            for non_terminal, definition in self.items():
-                should_be_added = any(
-                    all(symbol in nullable_set for symbol in rule)
-                    for rule in definition
-                )
-                already_present = non_terminal in nullable_set
-                if should_be_added != already_present:
-                    nullable_set.add(non_terminal)
-            if len(nullable_set) == num_nullable:
-                break
-            num_nullable = len(nullable_set)
-        self.cache(cache_key, nullable_set)
-        return nullable_set
-
-    def first_sentential_form(
+    def first(
         self,
         sentential_form: Sequence[Symbol],
-        computing_first_set: Optional[FirstSet] = None,
-        cache_key="first_sf",
     ) -> set[Terminal]:
-        first_set: FirstSet = (
-            self.first() if computing_first_set is None else computing_first_set
-        )
-
         if not sentential_form:
             return {EMPTY}
 
-        first_symbol, *rest = sentential_form
+        x, *xs = sentential_form
+        FIRST = self.gen_first()
+        return FIRST[x] | self.first(xs) if (x in self.gen_nullable()) else FIRST[x]
 
-        if first_symbol not in first_set:
-            first_set[first_symbol] = set()
+    @lru_cache(maxsize=1)  # only remember the last first set
+    def gen_first(self) -> FirstSet:
+        FIRST: FirstSet = defaultdict(set)
+        FIRST.update({terminal: {terminal} for terminal in self.terminals})
 
-        return (
-            first_set[first_symbol]
-            | self.first_sentential_form(rest, first_set, cache_key)
-            if (first_symbol in self.nullable())
-            else first_set[first_symbol]
-        )
+        changed = True
+        nullable = self.gen_nullable()
+        while changed:
+            changed = False
+            for origin, expansions in self.items():
+                for expansion in expansions:
+                    for i, sym in enumerate(expansion):
+                        if set(expansion[:i]) <= nullable:
+                            if update_set(FIRST[origin], FIRST[sym]):
+                                changed = True
+                        else:
+                            break
+        return FIRST
 
-    def first(self, cache_key="first") -> FirstSet:
-        if (cached := self.get_cached(cache_key)) is not None:
-            return cast(FirstSet, cached)
-
-        first_set: FirstSet = defaultdict(set)
-        first_set.update({terminal: {terminal} for terminal in self.terminals})
+    @lru_cache(maxsize=1)  # only remember the last follow set
+    def gen_follow_set(self) -> FollowSet:
+        FOLLOW: FollowSet = defaultdict(set)
+        FOLLOW[self.start] = {EOF}
 
         changed = True
         while changed:
             changed = False
-            for non_terminal, sentential_forms in self.items():
-                new_value = set.union(
-                    *(
-                        self.first_sentential_form(sentential_form, first_set)
-                        for sentential_form in sentential_forms
-                    )
-                )
-                if new_value != first_set[non_terminal]:
-                    first_set[non_terminal] = cast(set[Terminal], new_value)
-                    changed = True
-        self.cache(cache_key, first_set)
-        return first_set
-
-    def follow(self, cache_key="follow") -> FollowSet:
-        if (cached := self.get_cached(cache_key)) is not None:
-            return cast(FollowSet, cached)
-
-        follow_set: FollowSet = defaultdict(set)
-        follow_set[self._start_symbol] = {EOF}
-
-        changed = True
-        while changed:
-            changed = False
-            for A, definition in self.items():
-                for rule in definition:
-                    for index, B in rule.enumerate_variables():
-                        first_in_suffix = self.first_sentential_form(rule[index + 1 :])
-                        initial_size = len(follow_set[B])
-                        follow_set[B] |= first_in_suffix - {EMPTY}
-                        if EMPTY in first_in_suffix:
-                            follow_set[B] |= follow_set[A]
-                        if initial_size != len(follow_set[B]):
+            for origin, expansions in self.items():
+                for expansion in expansions:
+                    for i, sym in expansion.enumerate_variables():
+                        successor = self.first(expansion[i + 1 :])
+                        if EMPTY in successor and update_set(
+                            FOLLOW[sym], FOLLOW[origin]
+                        ):
+                            changed = True
+                        if update_set(FOLLOW[sym], successor - {EMPTY}):
                             changed = True
 
-        self.cache(cache_key, follow_set)
-        return follow_set
+        return FOLLOW
 
     def __setitem__(self, key, value):
         raise Exception("Cannot modify grammar; use add_rule instead")

@@ -2,7 +2,7 @@ from typing import NamedTuple
 
 from rich.traceback import install
 
-from grammar import NonTerminal, Rule, Terminal
+from grammar import Expansion, NonTerminal, Terminal
 from lr import LRState
 from utils import Token
 
@@ -13,7 +13,7 @@ class EarleyItem(NamedTuple):
     name: NonTerminal
     dot: int
     explicit_index: int
-    rule: Rule
+    rule: Expansion
 
     def __repr__(self):
         return (
@@ -34,17 +34,17 @@ def gen_early_sets(grammar, tokens: list[Token]) -> list[LRState[EarleyItem]]:
     assert len(tokens) > 0, "Cannot recognize an empty string"
     assert tokens[-1].token_type == "eof", "Last token must be EOF"
 
-    nullable_set = grammar.nullable()
+    nullable_set = grammar.gen_nullable()
 
     earley_sets = [LRState[EarleyItem](cls=EarleyItem) for _ in range(len(tokens))]
     earley_sets[0].extend(
         EarleyItem(
-            grammar.start_symbol,
+            grammar.start,
             0,
             0,
             rule,
         )
-        for rule in grammar[grammar.start_symbol]
+        for rule in grammar[grammar.start]
     )
     for pos, (token, earley_set) in enumerate(zip(tokens, earley_sets)):
         current_pos = 0
