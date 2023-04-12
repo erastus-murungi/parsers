@@ -96,7 +96,7 @@ class LR0ParsingTable(LRTable[LR0Item]):
             for item in state.yield_finished():
                 for symbol in self.grammar.terminals:
                     if (state, symbol.id) not in self:
-                        self[(state, symbol.id)] = Reduce(item.name, item.rule)
+                        self[(state, symbol.id)] = Reduce(item.name, len(item.rule))
                     else:
                         raise ValueError(
                             f"Encountered shift/reduce conflict on \n"

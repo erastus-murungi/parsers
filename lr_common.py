@@ -65,7 +65,10 @@ class State(list[T]):
         return State(*self, cls=self.type)
 
     def __hash__(self):
-        return hash(tuple(self))
+        return hash(frozenset(self))
+
+    def __eq__(self, other):
+        return frozenset(self) == frozenset(other)
 
     def __str__(self):
         return "\n".join(str(item) for item in self)

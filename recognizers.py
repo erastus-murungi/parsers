@@ -197,14 +197,33 @@ if __name__ == "__main__":
     #         <S> -> x
     #         <L> -> <L>,<S>
     # """
+
+
+    # table = {
+    #     "+": "+",
+    #     ";": ";",
+    #     "(": "(",
+    #     ")": ")",
+    #     "=": "=",
+    #     "*": "*",
+    # }
+
     table = {
-        "+": "+",
-        ";": ";",
-        "(": "(",
-        ")": ")",
-        "=": "=",
-        "*": "*",
+        'a': 'a',
+        'b': 'b',
+        'c': 'c',
+        'd': 'd',
     }
+
+    g = """
+    <S'>
+    <S'> -> <S>
+    <S> -> a <A> d | b <B> d | a <B> e | b <A> e
+    <A> -> c
+    <B> -> c
+    """
+
+
     #
     # g = """
     #     <S>
@@ -219,13 +238,13 @@ if __name__ == "__main__":
     #     <E> -> <T> | <T> + <E>
     #     <T> -> (<E>) | integer
     # """
-    g = """
-        <S>
-        <S> -> <E>
-        <E> -> <L> = <R> | <R>
-        <L> -> char | *<R>
-        <R> -> <L>
-    """
+    # g = """
+    #     <S>
+    #     <S> -> <E>
+    #     <E> -> <L> = <R> | <R>
+    #     <L> -> char | *<R>
+    #     <R> -> <L>
+    # """
 
     # table = {
     #     "+": "+",
@@ -239,14 +258,12 @@ if __name__ == "__main__":
     #     <S> -> <A>
     #     <A> -> <A> + <A> | <A> − <A> | a
     # """
-    tks = Tokenizer("1 + (2 + 3)", table).get_tokens_no_whitespace()
 
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
-    p = LR0ParsingTable(cfg, reduce=False)
-    print_rich(pretty_repr(p.states))
-    print_rich(pretty_repr(p))
+    p = LR1ParsingTable(cfg)
     p.draw_with_graphviz()
 
     # p.draw_with_graphviz()
-    print_rich(pretty_repr(LR1Recognizer(cfg).recognizes(tks)))
+    # tks = Tokenizer("1 + (2 + 3)", table).get_tokens_no_whitespace()
+    # print_rich(pretty_repr(LR1Recognizer(cfg).recognizes(tks)))

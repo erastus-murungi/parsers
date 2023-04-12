@@ -34,10 +34,10 @@ class LALR1ParsingTable(LR0ParsingTable):
                         self[(state, symbol.id)] = Reduce(item.name, len(item.rule))
                     else:
                         raise ValueError(
-                            f"Encountered shift/reduce conflict on \n"
+                            f"Encountered conflict on \n"
                             f" state: {str(state)}\n and symbol: {symbol.id}\n"
                             f"  {self[(state, symbol.id)]} and \n"
-                            f"  Reduce({item.name!s} -> {item.rule!s})"
+                            f"  {Reduce(item.name, len(item.rule))}"
                         )
 
     def compute_augmented_grammar(
