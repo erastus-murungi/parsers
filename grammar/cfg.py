@@ -124,14 +124,11 @@ class CFG(dict[NonTerminal, Definition]):
                             break  # move on to the next origin
         return NULLABLE
 
-    def first(
-        self,
-        sentential_form: Sequence[Symbol],
-    ) -> set[Terminal]:
-        if not sentential_form:
+    def first(self, symbols: Sequence[Symbol]) -> set[Terminal]:
+        if not symbols:
             return {EMPTY}
 
-        x, *xs = sentential_form
+        x, *xs = symbols
         FIRST = self.gen_first()
         return FIRST[x] | self.first(xs) if (x in self.gen_nullable()) else FIRST[x]
 
@@ -155,7 +152,7 @@ class CFG(dict[NonTerminal, Definition]):
         return FIRST
 
     @lru_cache(maxsize=1)  # only remember the last follow set
-    def gen_follow_set(self) -> FollowSet:
+    def gen_follow(self) -> FollowSet:
         FOLLOW: FollowSet = defaultdict(set)
         FOLLOW[self.start] = {EOF}
 

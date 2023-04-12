@@ -54,7 +54,7 @@ class LL1ParsingTable(dict[tuple[NonTerminal, str], Expansion]):
         super().__setitem__((non_terminal, terminal_id), rule)
 
     def build_ll1_parsing_table(self):
-        follow_set = self.grammar.gen_follow_set()
+        follow_set = self.grammar.gen_follow()
         for non_terminal, definition in self.grammar.items():
             for rule in definition:
                 for terminal in self.grammar.first(rule):

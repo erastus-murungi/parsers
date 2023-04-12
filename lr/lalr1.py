@@ -105,7 +105,7 @@ class LALR1ParsingTable(LR0ParsingTable):
         # print_rich(pretty_repr(State.ids))
         # print_rich(pretty_repr(augmented_grammar.follow()))
 
-        augmented_follow = augmented_grammar.gen_follow_set()
+        augmented_follow = augmented_grammar.gen_follow()
         lookaheads: dict[LRState, dict[LR0Item, set[Terminal]]] = defaultdict(
             lambda: defaultdict(set)
         )

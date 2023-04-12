@@ -4,7 +4,7 @@ from lr.lr0 import LR0ParsingTable
 
 class SLRParsingTable(LR0ParsingTable):
     def compute_reduce_actions(self):
-        follow_set = self.grammar.gen_follow_set()
+        follow_set = self.grammar.gen_follow()
         for state in self.states:
             for item in state.yield_finished():
                 for symbol in follow_set[item.name]:

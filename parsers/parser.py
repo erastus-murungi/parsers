@@ -393,6 +393,6 @@ if __name__ == "__main__":
     print_rich(pretty_repr(cfg))
 
     print_rich(pretty_repr(cfg.gen_nullable()))
-    print_rich(pretty_repr(cfg.gen_follow_set()))
+    print_rich(pretty_repr(cfg.gen_follow()))
     tks = Tokenizer("(1+2)", table).get_tokens_no_whitespace()
     print_rich(pretty_repr(LL1Parser(cfg).parse(tks).collapse()))

@@ -83,5 +83,5 @@ if __name__ == "__main__":
 
     print_rich(pretty_repr(cfg.gen_nullable()))
     print_rich(pretty_repr(cfg.gen_first()))
-    print_rich(pretty_repr(cfg.gen_follow_set()))
+    print_rich(pretty_repr(cfg.gen_follow()))
     assert LL1Recognizer(cfg).recognizes(tks)
