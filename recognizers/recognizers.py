@@ -291,4 +291,4 @@ if __name__ == "__main__":
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
     tks = Tokenizer("1 + (2 + 3)", table).get_tokens_no_whitespace()
-    print_rich(pretty_repr(LR1Recognizer(cfg).recognizes(tks)))
+    print_rich(pretty_repr(LL1Recognizer(cfg).recognizes(tks)))
