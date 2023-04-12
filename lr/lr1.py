@@ -1,8 +1,8 @@
 from functools import cache
 from typing import NamedTuple
 
-from core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
-from lr_common import Accept, Goto, LRTable, Reduce, Shift, State
+from grammar.core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
+from lr.core import Accept, Goto, LRTable, Reduce, Shift, State
 
 
 class LR1Item(NamedTuple):
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     from rich import print as print_rich
     from rich.pretty import pretty_repr
 
-    from parse_grammar import parse_grammar
+    from utils.parse_grammar import parse_grammar
 
     # table = {
     #     "x": "x",

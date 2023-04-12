@@ -2,13 +2,9 @@ from rich import print as print_rich
 from rich.pretty import pretty_repr
 from rich.traceback import install
 
-from parse_grammar import parse_grammar
-from recognizers import (
-    BFSTopDownLeftmostRecognizer,
-    DFSTopDownLeftmostRecognizer,
-    LL1Recognizer,
-)
-from tokenizer import Tokenizer
+from recognizers.recognizers import DFSTopDownLeftmostRecognizer, LL1Recognizer
+from utils.parse_grammar import parse_grammar
+from utils.tokenizer import Tokenizer
 
 install(show_locals=True)
 
@@ -88,6 +84,4 @@ if __name__ == "__main__":
     print_rich(pretty_repr(cfg.nullable()))
     print_rich(pretty_repr(cfg.first()))
     print_rich(pretty_repr(cfg.follow()))
-    table = cfg.build_ll1_parsing_table()
-    print_rich(str(table))
     assert LL1Recognizer(cfg).recognizes(tks)

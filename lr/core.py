@@ -6,10 +6,12 @@ from dataclasses import dataclass
 from itertools import count
 from typing import Generic, Hashable, Iterable, Protocol, TypeVar, runtime_checkable
 
-from cfg import CFG
-from core import NonTerminal, Symbol
+from prettytable import PrettyTable
 
-FILENAME = "state_graph"
+from grammar import CFG
+from grammar.core import NonTerminal, Symbol
+
+FILENAME = "./graphs/state_graph"
 DOT_FILEPATH = FILENAME + "." + "dot"
 GRAPH_TYPE = "pdf"
 OUTPUT_FILENAME = FILENAME + "." + GRAPH_TYPE
@@ -233,9 +235,6 @@ class LRTable(dict[tuple[State[T], str], Action], ABC):
                     )
                     seen.add(state)
                 case Reduce(name, _):
-                    # edges.append(
-                    #     f'    {hash(str(start))}:from_node -> {name!s}:from_false [arrowhead=vee, label="{rule!s}"] '
-                    # )
                     edges.append(
                         f'    {hash(str(start))}:from_node -> {name!s}:from_false [arrowhead=vee, label="reduce [{edge_label}]"] '
                     )
@@ -248,3 +247,38 @@ class LRTable(dict[tuple[State[T], str], Action], ABC):
             f.write("\n".join(graph))
 
         create_graph_pdf()
+
+    def to_pretty_table(self) -> str:
+        syms: list[str] = (
+            ["State"]
+            + [terminal.id for terminal in self.grammar.terminals]
+            + [terminal.id for terminal in self.grammar.non_terminals]
+        )
+        pretty_table = PrettyTable()
+        pretty_table.field_names = syms
+        hashmap: dict[State[T], dict[str, Action]] = defaultdict(dict)
+
+        for (state, edge_label), action in self.items():
+            hashmap[state][edge_label] = action
+
+        rows: list[list[int | str]] = []
+        for state, edge_label2action in hashmap.items():
+            row: list[int | str] = [state.id]
+            for sym in syms[1:]:
+                match edge_label2action.get(sym, None):
+                    case Goto(state):
+                        row.append(f"goto {state.id}")
+                    case Shift(state):
+                        row.append(f"shift {state.id}")
+                    case Reduce(name, length):
+                        row.append(f"reduce {name!s}({length})")
+                    case Accept():
+                        row.append("accept")
+                    case _:
+                        row.append("")
+            rows.append(row)
+
+        rows.sort(key=lambda row: row[0])
+        pretty_table.add_rows(rows)
+
+        return pretty_table.get_string()

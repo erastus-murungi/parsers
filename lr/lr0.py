@@ -1,8 +1,8 @@
 from functools import cache
 from typing import NamedTuple
 
-from core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
-from lr_common import Accept, Goto, LRTable, Reduce, Shift, State
+from grammar.core import EMPTY, EOF, NonTerminal, Rule, Symbol, Terminal
+from lr.core import Accept, Goto, LRTable, Reduce, Shift, State
 
 
 class LR0Item(NamedTuple):
@@ -139,28 +139,11 @@ class LR0ParsingTable(LRTable[LR0Item]):
             self.compute_reduce_actions()
 
 
-class SLRParsingTable(LR0ParsingTable):
-    def compute_reduce_actions(self):
-        follow_set = self.grammar.follow()
-        for state in self.states:
-            for item in state.yield_finished():
-                for symbol in follow_set[item.name]:
-                    if (state, symbol.id) not in self:
-                        self[(state, symbol.id)] = Reduce(item.name, len(item.rule))
-                    else:
-                        raise ValueError(
-                            f"Encountered shift/reduce conflict on \n"
-                            f" state: {str(state)}\n and symbol: {symbol.id}\n"
-                            f"  {self[(state, symbol.id)]} and \n"
-                            f"  Reduce({item.name!s} -> {item.rule!s})"
-                        )
-
-
 if __name__ == "__main__":
     from rich import print as print_rich
     from rich.pretty import pretty_repr
 
-    from parse_grammar import parse_grammar
+    from utils.parse_grammar import parse_grammar
 
     table = {
         "x": "x",
@@ -181,5 +164,3 @@ if __name__ == "__main__":
     print_rich(pretty_repr(cfg))
 
     print_rich(pretty_repr(LR0ParsingTable(cfg)))
-
-    SLRParsingTable(cfg).draw_with_graphviz()

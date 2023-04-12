@@ -1,8 +1,8 @@
 import re
 from typing import Final, Iterator
 
-from cfg import CFG
-from core import NonTerminal, Rule, Terminal
+from grammar import CFG
+from grammar.core import NonTerminal, Rule, Terminal
 
 NON_TERMINAL_REGEX: Final[str] = r"<([\w\']+)>"
 SEPARATOR = r"->"

@@ -2,10 +2,10 @@ from collections import defaultdict
 
 from more_itertools import one
 
-from cfg import CFG
-from core import NonTerminal, Rule, Terminal
-from lr0 import LR0Item, LR0ParsingTable
-from lr_common import Goto, Reduce, Shift, State, T
+from grammar import CFG
+from grammar.core import NonTerminal, Rule, Terminal
+from lr.core import Goto, Reduce, Shift, State, T
+from lr.lr0 import LR0Item, LR0ParsingTable
 
 
 class AugmentedSymbol(NonTerminal):
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     from rich import print as print_rich
     from rich.pretty import pretty_repr
 
-    from parse_grammar import parse_grammar
+    from utils.parse_grammar import parse_grammar
 
     table = {
         "+": "+",

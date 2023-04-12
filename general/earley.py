@@ -2,9 +2,9 @@ from typing import NamedTuple
 
 from rich.traceback import install
 
-from core import NonTerminal, Rule, Terminal
-from lr_common import State
-from tokenizer import Token
+from grammar.core import NonTerminal, Rule, Terminal
+from lr.core import State
+from utils.tokenizer import Token
 
 install(show_locals=True)
 

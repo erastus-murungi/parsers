@@ -2,13 +2,15 @@ from abc import ABC, abstractmethod
 from collections import deque
 from typing import cast
 
-from cfg import CFG
-from core import EMPTY, EOF, NonTerminal, Rule, Terminal
-from earley import gen_early_sets
-from lalr import LALR1ParsingTable
-from lr0 import Accept, Goto, LR0ParsingTable, Reduce, Shift, SLRParsingTable
-from lr1 import LR1ParsingTable
-from tokenizer import Token
+from general import gen_early_sets
+from grammar import CFG
+from grammar.core import EMPTY, EOF, NonTerminal, Rule, Terminal
+from lalr.lalr1 import LALR1ParsingTable
+from ll.ll1 import LL1ParsingTable
+from lr.core import Accept, Goto, Reduce, Shift
+from lr.lr1 import LR1ParsingTable
+from lr.slr import LR0ParsingTable, SLRParsingTable
+from utils.tokenizer import Token
 
 MAX_ITERATIONS = 1000_000
 
@@ -89,7 +91,7 @@ class DFSTopDownLeftmostRecognizer(Recognizer):
 
 class LL1Recognizer(Recognizer):
     def recognizes(self, tokens: list[Token]) -> bool:
-        parsing_table = self.grammar.build_ll1_parsing_table()
+        parsing_table = LL1ParsingTable(self.grammar)
         stack, token_index = [EOF, self.grammar.start_symbol], 0
 
         while stack:
@@ -180,8 +182,7 @@ if __name__ == "__main__":
     from rich import print as print_rich
     from rich.pretty import pretty_repr
 
-    from parse_grammar import parse_grammar
-    from tokenizer import Tokenizer
+    from utils.parse_grammar import parse_grammar
 
     # table = {
     #     "x": "x",
@@ -197,33 +198,20 @@ if __name__ == "__main__":
     #         <S> -> x
     #         <L> -> <L>,<S>
     # """
-
-
     # table = {
-    #     "+": "+",
-    #     ";": ";",
-    #     "(": "(",
-    #     ")": ")",
-    #     "=": "=",
-    #     "*": "*",
+    #     "a": "a",
+    #     "b": "b",
+    #     "c": "c",
+    #     "d": "d",
     # }
-
-    table = {
-        'a': 'a',
-        'b': 'b',
-        'c': 'c',
-        'd': 'd',
-    }
-
-    g = """
-    <S'>
-    <S'> -> <S>
-    <S> -> a <A> d | b <B> d | a <B> e | b <A> e
-    <A> -> c
-    <B> -> c
-    """
-
-
+    #
+    # g = """
+    # <S'>
+    # <S'> -> <S>
+    # <S> -> a <A> d | b <B> d | a <B> e | b <A> e
+    # <A> -> c
+    # <B> -> c
+    # """
     #
     # g = """
     #     <S>
@@ -231,20 +219,29 @@ if __name__ == "__main__":
     #     <E> -> <T>; | <T> + <E>
     #     <T> -> (<E>) | integer
     # """
-
     # g = """
     #     <S>
     #     <S> -> <E>
     #     <E> -> <T> | <T> + <E>
     #     <T> -> (<E>) | integer
     # """
-    # g = """
-    #     <S>
-    #     <S> -> <E>
-    #     <E> -> <L> = <R> | <R>
-    #     <L> -> char | *<R>
-    #     <R> -> <L>
-    # """
+
+    table = {
+        "+": "+",
+        ";": ";",
+        "(": "(",
+        ")": ")",
+        "=": "=",
+        "*": "*",
+    }
+
+    g = """
+        <S>
+        <S> -> <E>
+        <E> -> <L> = <R> | <R>
+        <L> -> char | *<R>
+        <R> -> <L>
+    """
 
     # table = {
     #     "+": "+",
@@ -262,7 +259,9 @@ if __name__ == "__main__":
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
     p = LR1ParsingTable(cfg)
-    p.draw_with_graphviz()
+    print_rich(p.to_pretty_table())
+    p1 = LALR1ParsingTable(cfg)
+    print_rich(p1.to_pretty_table())
 
     # p.draw_with_graphviz()
     # tks = Tokenizer("1 + (2 + 3)", table).get_tokens_no_whitespace()

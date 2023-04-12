@@ -1,13 +1,12 @@
 from collections import defaultdict
 from typing import Optional, Sequence, cast
 
-from core import (
+from .core import (
     EMPTY,
     EOF,
     Definition,
     FirstSet,
     FollowSet,
-    LL1ParsingTable,
     NonTerminal,
     NullableSet,
     Rule,
@@ -29,9 +28,7 @@ class CFG(dict[NonTerminal, Definition]):
         self._start_symbol: NonTerminal = start_symbol
         self._terminals: set[Terminal] = {EOF}
         self._current_time = 0
-        self._caches: dict[
-            str, tuple[int, set[Symbol] | FollowSet | FirstSet | LL1ParsingTable]
-        ] = {}
+        self._caches: dict[str, tuple[int, set[Symbol] | FollowSet | FirstSet]] = {}
 
     def __len__(self):
         return super().__len__() - 1
@@ -93,7 +90,7 @@ class CFG(dict[NonTerminal, Definition]):
 
     def get_cached(
         self, function_name: str
-    ) -> Optional[set[Symbol] | FollowSet | FirstSet | LL1ParsingTable]:
+    ) -> Optional[set[Symbol] | FollowSet | FirstSet]:
         if function_name not in self._caches:
             return None
         compute_time, cached = self._caches[function_name]
@@ -209,25 +206,6 @@ class CFG(dict[NonTerminal, Definition]):
 
         self.cache(cache_key, follow_set)
         return follow_set
-
-    def build_ll1_parsing_table(self, cache_key="ll1_parsing_table") -> LL1ParsingTable:
-        if (cached := self.get_cached(cache_key)) is not None:
-            return cast(LL1ParsingTable, cached)
-
-        follow_set = self.follow()
-        parsing_table = LL1ParsingTable(self._terminals)
-
-        for non_terminal, definition in self.items():
-            for rule in definition:
-                for terminal in self.first_sentential_form(rule):
-                    if terminal is not EMPTY:
-                        parsing_table[(non_terminal, terminal.id)] = rule
-                if EMPTY in self.first_sentential_form(rule):
-                    for terminal in follow_set[non_terminal]:
-                        parsing_table[(non_terminal, terminal.id)] = rule
-
-        self.cache(cache_key, parsing_table)
-        return parsing_table
 
     def __setitem__(self, key, value):
         raise Exception("Cannot modify grammar; use add_rule instead")
