@@ -10,7 +10,7 @@ from ll.ll1 import LL1ParsingTable
 from lr.core import Accept, Goto, Reduce, Shift
 from lr.lr1 import LR1ParsingTable
 from lr.slr import LR0ParsingTable, SLRParsingTable
-from utils.tokenizer import Token
+from utils.tokenizer import Token, Tokenizer
 
 MAX_ITERATIONS = 1000_000
 
@@ -148,8 +148,8 @@ class LR0Recognizer(Recognizer):
                 case Shift(current_state):
                     stack.append(current_state)
                     token_index += current_token.id != EOF.id
-                case Reduce(lhs, rule):
-                    stack = stack[: -len(rule)]
+                case Reduce(lhs, len_rhs):
+                    stack = stack[:-len_rhs]
                     match parsing_table[(stack[-1], lhs.id)]:
                         case Goto(current_state):
                             stack.append(current_state)
@@ -231,22 +231,45 @@ if __name__ == "__main__":
     #     <T> -> (<E>) | integer
     # """
 
-    table = {
-        "+": "+",
-        ";": ";",
-        "(": "(",
-        ")": ")",
-        "=": "=",
-        "*": "*",
-    }
+    # table = {
+    #     "+": "+",
+    #     ";": ";",
+    #     "(": "(",
+    #     ")": ")",
+    #     "=": "=",
+    #     "*": "*",
+    # }
+    #
+    # g = """
+    #     <S>
+    #     <S> -> <E>
+    #     <E> -> <L> = <R> | <R>
+    #     <L> -> char | *<R>
+    #     <R> -> <L>
+    # """
 
     g = """
-        <S>
-        <S> -> <E>
-        <E> -> <L> = <R> | <R>
-        <L> -> char | *<R>
-        <R> -> <L>
+        <program>
+        <program> -> <expression>
+        <expression> -> <term> | <term> <add_op> <expression>
+        <term> -> <factor> | <factor> <mult_op> <term>
+        <factor> -> <power> | <power> ^ <factor>
+        <power> -> <number> | ( <expression> )
+        <number> -> <digit> | <digit> <number>
+        <add_op> -> + | -
+        <mult_op> -> * | /
+        <digit> -> integer | float
     """
+
+    table = {
+        "+": "+",
+        "-": "-",
+        "*": "*",
+        "/": "/",
+        "(": "(",
+        ")": ")",
+        "^": "^",
+    }
 
     # table = {
     #     "+": "+",
@@ -263,11 +286,5 @@ if __name__ == "__main__":
 
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
-    p = LR1ParsingTable(cfg)
-    print_rich(p.to_pretty_table())
-    p1 = LALR1ParsingTable(cfg)
-    print_rich(p1.to_pretty_table())
-
-    # p.draw_with_graphviz()
-    # tks = Tokenizer("1 + (2 + 3)", table).get_tokens_no_whitespace()
-    # print_rich(pretty_repr(LR1Recognizer(cfg).recognizes(tks)))
+    tks = Tokenizer("1 + (2 + 3)", table).get_tokens_no_whitespace()
+    print_rich(pretty_repr(LR1Recognizer(cfg).recognizes(tks)))

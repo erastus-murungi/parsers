@@ -30,6 +30,7 @@ class LRState(list[T]):
     ids: dict["LRState", int] = defaultdict(count(1).__next__)
 
     def __init__(self, *items, cls: type[T]):
+        assert issubclass(cls, Completable)
         self.type = cls
         assert all(
             isinstance(item, cls) for item in items
@@ -44,7 +45,7 @@ class LRState(list[T]):
         return LRState.ids[self]
 
     def append(self, completable: T) -> None:
-        if not isinstance(completable, Completable):
+        if not isinstance(completable, self.type):
             raise TypeError(f"Expected Completable, got {type(completable)}")
         if completable not in self:
             super().append(completable)
@@ -87,10 +88,10 @@ class Action(ABC):
 @dataclass(frozen=True, slots=True)
 class Reduce(Action):
     lhs: NonTerminal
-    rule: Rule
+    len_rhs: int
 
     def __str__(self):
-        return f"Reduce({self.rule!s})"
+        return f"Reduce({self.len_rhs!s})"
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,8 +287,8 @@ class LRTable(dict[tuple[LRState[T], str], Action], ABC):
                         row.append(f"goto {state.id}")
                     case Shift(state):
                         row.append(f"shift {state.id}")
-                    case Reduce(name, rule):
-                        row.append(f"reduce {name!s}({rule!s})")
+                    case Reduce(name, len_rule):
+                        row.append(f"reduce {name!s}{{{len_rule!s}}})")
                     case Accept():
                         row.append("accept")
                     case _:

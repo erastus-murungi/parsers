@@ -31,13 +31,13 @@ class LALR1ParsingTable(LR0ParsingTable):
                 lookahead = self.lookaheads[state][item]
                 for symbol in lookahead:
                     if (state, symbol.id) not in self:
-                        self[(state, symbol.id)] = Reduce(item.name, item.rule)
+                        self[(state, symbol.id)] = Reduce(item.name, len(item.rule))
                     else:
                         raise ValueError(
                             f"Encountered conflict on \n"
                             f" state: {str(state)}\n and symbol: {symbol.id}\n"
                             f"  {self[(state, symbol.id)]} and \n"
-                            f"  {Reduce(item.name, item.rule)}"
+                            f"  {Reduce(item.name, len(item.rule))}"
                         )
 
     def compute_augmented_grammar(

@@ -117,7 +117,7 @@ class LR0ParsingTable(LRTable[LR0Item]):
         """
 
         assert sym is not EMPTY and sym is not EOF
-        kernel = LRState[LR0Item](cls=LR0Item)
+        kernel = LRState(cls=state.type)
         for item in state.yield_unfinished():
             if item.rule[item.dot] == sym:
                 kernel.append(item.advance())
@@ -139,13 +139,13 @@ class LR0ParsingTable(LRTable[LR0Item]):
             for item in state.yield_finished():
                 for symbol in self.grammar.terminals:
                     if (state, symbol.id) not in self:
-                        self[(state, symbol.id)] = Reduce(item.name, item.rule)
+                        self[(state, symbol.id)] = Reduce(item.name, len(item.rule))
                     else:
                         raise ValueError(
                             f"Encountered conflict on \n"
                             f" state: {str(state)}\n and symbol: {symbol.id}\n"
                             f"  {self[(state, symbol.id)]} and \n"
-                            f"  Reduce({item.name!s} -> {item.rule!s})"
+                            f"  Reduce({item.name}, {len(item.rule)})"
                         )
 
     def construct(self):
@@ -156,7 +156,8 @@ class LR0ParsingTable(LRTable[LR0Item]):
         while changing:
             changing = False
             for state in list(states.keys()):
-                for _, dot, rule in state.yield_unfinished():
+                for item in state.yield_unfinished():
+                    dot, rule = item.dot, item.rule
                     symbol = rule[dot]
                     if symbol is EOF:
                         # accept action

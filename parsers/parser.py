@@ -193,23 +193,18 @@ class LR0Parser(Parser):
                     stack.append(current_state)
                     tree.append(current_token)
                     token_index += current_token.id != EOF.id
-                case Reduce(lhs, rule):
-                    stack = stack[: -len(rule)]
+                case Reduce(lhs, len_rhs):
+                    stack = stack[:-len_rhs]
                     match parsing_table[(stack[-1], lhs.id)]:
                         case Goto(current_state):
                             stack.append(current_state)
-                            tree_top = tree[-len(rule) :]
-                            tree = tree[: -len(rule)] + [ParseTree(lhs, tree_top)]
-                            print_rich(pretty_repr(rule))
+                            tree_top = tree[-len_rhs:]
+                            tree = tree[:-len_rhs] + [ParseTree(lhs, tree_top)]
                         case _:
                             raise SyntaxError(
                                 f"Unexpected {current_token.id} at {current_token.loc}"
                             )
                 case Accept():
-                    # output the parse tree
-                    if len(tree) == 1:
-                        return tree[0]
-                    assert EOF.matches(tree.pop())
                     return one(tree)
                 case _:
                     raise SyntaxError(
@@ -369,10 +364,10 @@ if __name__ == "__main__":
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
 
-    p = SLRParsingTable(cfg)
-    p.draw_with_graphviz()
-    print_rich(p.to_pretty_table())
+    # p = SLRParsingTable(cfg)
+    # p.draw_with_graphviz()
+    # print_rich(p.to_pretty_table())
 
     tks = Tokenizer("(1+2)", table).get_tokens_no_whitespace()
     print_rich(pretty_repr(tks))
-    print_rich(pretty_repr([t.collapse() for t in EarleyParser(cfg).parse(tks)]))
+    print_rich(pretty_repr(SLRParser(cfg).parse(tks).collapse()))
