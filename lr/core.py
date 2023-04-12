@@ -265,23 +265,18 @@ class LRTable(dict[tuple[LRState[T], str], Action], ABC):
         create_graph_pdf()
 
     def to_pretty_table(self) -> str:
-        syms: list[str] = (
-            ["State"]
-            + [terminal.name for terminal in self.grammar.terminals]
-            + [terminal.name for terminal in self.grammar.non_terminals]
-        )
+        syms: list[str] = [terminal.name for terminal in self.grammar.terminals] + [
+            terminal.name for terminal in self.grammar.non_terminals
+        ]
+
         pretty_table = PrettyTable()
-        pretty_table.field_names = syms
-        hashmap: dict[LRState[T], dict[str, Action]] = defaultdict(dict)
+        pretty_table.field_names = ["State"] + syms
 
-        for (state, edge_label), action in self.items():
-            hashmap[state][edge_label] = action
-
-        rows: list[list[int | str]] = []
-        for state, edge_label2action in hashmap.items():
-            row: list[int | str] = [state.id]
-            for sym in syms[1:]:
-                match edge_label2action.get(sym, None):
+        rows: list[list[str]] = []
+        for state in self.states:
+            row: list[str] = [str(state.id)]
+            for sym in syms:
+                match self.get((state, sym), None):
                     case Goto(state):
                         row.append(f"goto {state.name}")
                     case Shift(state):

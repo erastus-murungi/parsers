@@ -64,6 +64,7 @@ class Parser(ABC):
 class LL1Parser(Parser):
     def parse(self, tokens: list[Token]) -> Iterator[ParseTree] | ParseTree:
         parsing_table = LL1ParsingTable(self.grammar)
+        print_rich(pretty_repr(parsing_table.to_pretty_table()))
         root = ParseTree(self.grammar.start, [])
         stack, token_index = [
             (EOF, root),
@@ -392,7 +393,10 @@ if __name__ == "__main__":
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
 
+    print_rich(pretty_repr(cfg.gen_follow()))
+
     print_rich(pretty_repr(cfg.gen_nullable()))
     print_rich(pretty_repr(cfg.gen_follow()))
     tks = Tokenizer("(1+2)", table).get_tokens_no_whitespace()
-    print_rich(pretty_repr(LL1Parser(cfg).parse(tks).collapse()))
+    p = LL1Parser(cfg)
+    print_rich(pretty_repr(p.parse(tks).collapse()))
