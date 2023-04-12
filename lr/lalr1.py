@@ -101,9 +101,6 @@ class LALR1ParsingTable(LR0ParsingTable):
 
     def compute_lookaheads(self) -> dict[LRState, dict[LR0Item, set[Terminal]]]:
         augmented_grammar, old2new = self.compute_augmented_grammar()
-        # print_rich(pretty_repr(augmented_grammar))
-        # print_rich(pretty_repr(State.ids))
-        # print_rich(pretty_repr(augmented_grammar.follow()))
 
         augmented_follow = augmented_grammar.gen_follow()
         lookaheads: dict[LRState, dict[LR0Item, set[Terminal]]] = defaultdict(
@@ -132,7 +129,6 @@ class LALR1ParsingTable(LR0ParsingTable):
                         augmented_name
                     ]
 
-        # print_rich(pretty_repr(lookaheads))
         return lookaheads
 
 
