@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from functools import cache
 
+from more_itertools import one
+
 from grammar import EOF, NonTerminal, Terminal
 from lr.core import LRState, Reduce
 from lr.lr0 import LR0Item, LR0ParsingTable
@@ -12,32 +14,33 @@ class LR1Item(LR0Item):
 
     def __repr__(self):
         return (
-            f"{self.name!r} -> {' '.join(repr(sym) for sym in self.rule[:self.dot])}"
+            f"{self.name!r} -> {' '.join(repr(sym) for sym in self.expansion[:self.dot])}"
             f" . "
-            f"{' '.join(repr(sym) for sym in self.rule[self.dot:])}         ({self.lookahead!r})"
+            f"{' '.join(repr(sym) for sym in self.expansion[self.dot:])}         ({self.lookahead!r})"
         )
 
     def __str__(self):
         return (
-            f"{self.name!s} -> {' '.join(str(sym) for sym in self.rule[:self.dot])}"
+            f"{self.name!s} -> {' '.join(str(sym) for sym in self.expansion[:self.dot])}"
             f" . "
-            f"{' '.join(str(sym) for sym in self.rule[self.dot:])}          ({self.lookahead!s})"
+            f"{' '.join(str(sym) for sym in self.expansion[self.dot:])}          ({self.lookahead!s})"
         )
 
     def __iter__(self):
-        yield from [self.name, self.dot, self.rule, self.lookahead]
+        yield from [self.name, self.dot, self.expansion, self.lookahead]
 
     def advance(self):
-        return LR1Item(self.name, self.dot + 1, self.rule, self.lookahead)
+        return LR1Item(self.name, self.dot + 1, self.expansion, self.lookahead)
 
 
 class LR1ParsingTable(LR0ParsingTable):
     def init_kernel(self):
+        # append EOF to the start symbol
         return LRState[LR1Item](
             LR1Item(
                 self.grammar.start,
                 0,
-                self.grammar[self.grammar.start][0].append_marker(EOF),
+                one(self.grammar[self.grammar.start]).append(EOF),
                 EOF,  # could be anything
             ),
             cls=LR1Item,
@@ -58,7 +61,7 @@ class LR1ParsingTable(LR0ParsingTable):
                 b, beta = rule[dot], rule[dot + 1 :]
                 if isinstance(b, NonTerminal):
                     for gamma in self.grammar[b]:
-                        for w in self.grammar.first(beta + [lookahead]):
+                        for w in self.grammar.first(beta + (lookahead,)):
                             items.append(LR1Item(b, 0, gamma, w))
             if len(items) == initial_closure_size:
                 break

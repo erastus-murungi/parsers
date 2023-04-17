@@ -1,1 +1,1 @@
-from .earley import EarleyItem, gen_early_sets
+from .earley import EarleyItem, gen_earley_sets

@@ -110,7 +110,14 @@ class Tokenizer:
         )
         if ret is None:
             # no token found
-            return Token("char", self._current_char(), pos)
+            word = re.match(r"\b\w+\b", self._remaining_code())
+            if word is not None:
+                word = word.group(0).strip()
+                lexeme, ret_type = word, "word"
+            else:
+                lexeme, ret_type = self._current_char(), "char"
+            self._skip_n_chars(len(lexeme) - 1)
+            return Token(ret_type, lexeme, pos)
 
         lexeme, ret_type = ret
         self._skip_n_chars(len(lexeme) - 1)
@@ -123,14 +130,17 @@ class Tokenizer:
         return self._code[self._code_offset :]
 
     def _tokenize(self) -> Iterator[Token]:
+        named_tokens = list(
+            sorted(
+                self._named_tokens.items(), key=lambda item: len(item[0]), reverse=True
+            )
+        )
         while self._code_offset < len(self._code):
             token_location = self.Loc(
                 self._filename, self._linenum, self._column, self._code_offset
             )
             # greedy attempt
-            for matching, identifier in sorted(
-                self._named_tokens.items(), key=lambda item: len(item[0])
-            ):
+            for matching, identifier in named_tokens:
                 if self._remaining_code().startswith(matching):
                     # this is a keyword
                     self._skip_n_chars(len(matching) - 1)

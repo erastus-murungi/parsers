@@ -1,0 +1,1 @@
+from .recognizers import recognize

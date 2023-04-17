@@ -1,7 +1,7 @@
 import re
 from typing import Final, Iterator
 
-from grammar import CFG, Expansion, NonTerminal, Terminal
+from grammar import EMPTY, Grammar, NonTerminal, Symbol, Terminal
 
 NON_TERMINAL_REGEX: Final[str] = r"<([\w\']+)>"
 SEPARATOR = r"->"
@@ -25,15 +25,12 @@ def bind_token_type(token_type: str):
     return lambda token: token.token_type == token_type
 
 
-def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> CFG:
+def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> Grammar:
     """Ad Hoc grammar parser"""
 
-    first_line, *definitions = grammar_str.strip().split("\n")
+    definitions = grammar_str.strip().split("\n")
 
-    if (start_symbol_match := re.match(NON_TERMINAL_REGEX, first_line)) is None:
-        raise ValueError("no start symbol found")
-
-    cfg = CFG(start_symbol=NonTerminal(start_symbol_match.group(1)))
+    cfg = Grammar.Builder()
 
     for definition in definitions:
         if not definition.strip():
@@ -49,11 +46,11 @@ def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> CFG:
 
         for rule_str in rhs_str.split("|"):
 
-            rule = Expansion()
+            rule: list[Symbol] = []
 
             for lexeme in iter_symbol_tokens(rule_str):
                 if lexeme == "<>":
-                    break
+                    rule.append(EMPTY)
                 elif lexeme.startswith(r"\\"):
                     # this is a terminal
                     rule.append(Terminal(lexeme[1:], bind_lexeme(lexeme[1:])))
@@ -70,6 +67,6 @@ def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> CFG:
                             bind_lexeme(lexeme),
                         )
                     )
-            cfg.add_rule(lhs, rule)
+            cfg.add_expansion(lhs, rule)
 
-    return cfg
+    return cfg.build()

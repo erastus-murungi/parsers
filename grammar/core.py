@@ -47,18 +47,22 @@ EMPTY = Marker("ε", lambda token: True)
 
 class NonTerminal(Symbol):
     def __repr__(self):
-        return f"[bold red]<{self.name.capitalize()}>[/bold red]"
+        return f"[bold red]<{self.name}>[/bold red]"
 
 
 def all_terminals(symbols: Sequence[Symbol]) -> TypeGuard[Sequence[Terminal]]:
     return all(isinstance(symbol, Terminal) for symbol in symbols)
 
 
-class Expansion(list[Symbol]):
-    def __init__(self, args: Optional[Iterable[Symbol]] = None):
+class Expansion(tuple[Symbol]):
+    def __new__(cls, args: Optional[Iterable[Symbol]] = None) -> "Expansion":
         if args is None:
             args = []
-        super().__init__(args)
+        return tuple.__new__(Expansion, args)  # type: ignore
+
+    @staticmethod
+    def empty() -> "Expansion":
+        return Expansion({EMPTY})
 
     def __iter__(self):
         yield from filter(lambda token: token is not EMPTY, super().__iter__())
@@ -76,13 +80,13 @@ class Expansion(list[Symbol]):
             return Expansion(self[:index] + self[index + 1 :])
         return Expansion(self[:index] + replacer + self[index + 1 :])
 
-    def append_marker(self, sentinel: Marker):
-        return Expansion(self + [sentinel])
-
     def enumerate_variables(self) -> Iterator[tuple[int, NonTerminal]]:
         for index, symbol in enumerate(self):
             if isinstance(symbol, NonTerminal):
                 yield index, symbol
+
+    def append(self, symbol: Symbol) -> "Expansion":
+        return Expansion(self + (symbol,))
 
     def should_prune(
         self,
@@ -135,16 +139,3 @@ class Expansion(list[Symbol]):
 FollowSet = defaultdict[Symbol, set[Terminal]]
 FirstSet = defaultdict[Symbol, set[Terminal]]
 NullableSet = set[Symbol]
-
-
-class Definition(list[Expansion]):
-    def __init__(self, expansions: Optional[Iterable[Expansion]] = None):
-        if expansions is None:
-            expansions = []
-        super().__init__(expansions)
-
-    def __repr__(self):
-        return " | ".join(repr(item) for item in self)
-
-    def __hash__(self):
-        return hash(tuple(self))

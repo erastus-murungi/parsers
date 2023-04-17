@@ -1,5 +1,3 @@
-import subprocess
-import sys
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
@@ -8,9 +6,9 @@ from typing import Generic, Hashable, Iterable, Protocol, TypeVar, runtime_check
 
 from prettytable import PrettyTable
 
-from grammar import CFG, NonTerminal, Symbol
+from grammar import Grammar, NonTerminal, Symbol
 
-FILENAME = "./graphs/state_graph"
+FILENAME = "../graphs/state_graph"
 DOT_FILEPATH = FILENAME + "." + "dot"
 GRAPH_TYPE = "pdf"
 OUTPUT_FILENAME = FILENAME + "." + GRAPH_TYPE
@@ -45,7 +43,7 @@ class LRState(list[T]):
 
     def append(self, completable: T) -> None:
         if not isinstance(completable, self.type):
-            raise TypeError(f"Expected Completable, got {type(completable)}")
+            raise TypeError(f"Expected {self.type}, got {type(completable)}")
         if completable not in self:
             super().append(completable)
 
@@ -126,7 +124,7 @@ class Shift(Action, Generic[T]):
 
 
 class LRTable(dict[tuple[LRState[T], str], Action], ABC):
-    def __init__(self, grammar: CFG, *, reduce: bool = True):
+    def __init__(self, grammar: Grammar, *, reduce: bool = True):
         super().__init__()
         self.grammar = grammar
         self.states: list[LRState[T]] = []
@@ -157,113 +155,6 @@ class LRTable(dict[tuple[LRState[T], str], Action], ABC):
     def construct(self):
         pass
 
-    def draw_with_graphviz(self):
-        def graph_prologue():
-            return (
-                'digraph G {  graph [fontname = "Courier New", engine="sfdp"];\n'
-                + ' node [fontname = "Courier", style = rounded];\n'
-                + ' edge [fontname = "Courier"];'
-            )
-
-        def graph_epilogue():
-            return "}"
-
-        def escape(s: str):
-            return (
-                s.replace("\\", "\\\\")
-                .replace("\t", "\\t")
-                .replace("\b", "\\b")
-                .replace("\r", "\\r")
-                .replace("\f", "\\f")
-                .replace("'", "\\'")
-                .replace('"', '\\"')
-                .replace("<", "\\<")
-                .replace(">", "\\>")
-                .replace("\n", "\\l")
-                .replace("||", "\\|\\|")
-                .replace("[", "\\[")
-                .replace("]", "\\]")
-                .replace("{", "\\{")
-                .replace("}", "\\}")
-            )
-
-        def create_graph_pdf(
-            dot_filepath=DOT_FILEPATH,
-            output_filepath=OUTPUT_FILENAME,
-            output_filetype=GRAPH_TYPE,
-        ):
-            dot_exec_filepath = (
-                "/usr/local/bin/dot" if sys.platform == "darwin" else "/usr/bin/dot"
-            )
-            args = [
-                dot_exec_filepath,
-                f"-T{output_filetype}",
-                f"-Gdpi={96}",
-                dot_filepath,
-                "-o",
-                output_filepath,
-            ]
-            subprocess.run(args)
-            subprocess.run(["open", output_filepath])
-            subprocess.run(["rm", DOT_FILEPATH])
-
-        graph = [graph_prologue()]
-        edges = []
-        nodes = []
-        seen = set()
-
-        edges.append(
-            f"    start:from_false -> {hash(str(self.states[0]))}:from_node [arrowhead=vee] "
-        )
-        for (start, edge_label), action in self.items():
-            if start not in seen:
-                nodes.append(
-                    f"   {hash(str(start))} [shape=record, style=filled, fillcolor=black, "
-                    f'fontcolor=white, label="{escape(str(start))}"];'
-                )
-            seen.add(start)
-            match action:
-                case Accept():
-                    edges.append(
-                        f'    {hash(str(start))}:from_false -> accept:from_node [arrowhead=vee] [label="$"] '
-                    )
-                case Shift(state):
-                    if state not in seen:
-                        nodes.append(
-                            f"   {hash(str(state))} [shape=record, style=filled, "
-                            f'fillcolor=black, fontcolor=white, label="{escape(str(state))}"];'
-                        )
-                    edges.append(
-                        f"    {hash(str(start))}:from_false -> {hash(str(state))}:from_node "
-                        f'[label="shift [{escape(edge_label)}]"];'
-                    )
-                    seen.add(state)
-                case Goto(state):
-                    if state not in seen:
-                        nodes.append(
-                            f"   {hash(str(state))} [shape=record, style=filled, "
-                            f'fillcolor=black, fontcolor=white, label="{escape(str(state))}"];'
-                        )
-                    edges.append(
-                        f"    {hash(str(start))}:from_false -> {hash(str(state))}:from_node "
-                        f'[label="goto [{escape(edge_label)}]"];'
-                    )
-                    seen.add(state)
-                case Reduce(name, _):
-                    edges.append(
-                        f"    {hash(str(start))}:from_node -> {name!s}:from_false "
-                        f'[arrowhead=vee, label="reduce [{edge_label}]"] '
-                    )
-
-        graph.extend(edges)
-        graph.extend(nodes)
-        graph.append(graph_epilogue())
-
-        with open(DOT_FILEPATH, "w") as f:
-            f.write("\n".join(graph))
-
-        create_graph_pdf()
-
     def to_pretty_table(self) -> str:
         syms: list[str] = [terminal.name for terminal in self.grammar.terminals] + [
             terminal.name for terminal in self.grammar.non_terminals
@@ -278,11 +169,11 @@ class LRTable(dict[tuple[LRState[T], str], Action], ABC):
             for sym in syms:
                 match self.get((state, sym), None):
                     case Goto(state):
-                        row.append(f"goto {state.name}")
+                        row.append(f"goto {state.id}")
                     case Shift(state):
-                        row.append(f"shift {state.name}")
+                        row.append(f"shift {state.id}")
                     case Reduce(name, len_rule):
-                        row.append(f"reduce {name!s}{{{len_rule!s}}})")
+                        row.append(f"reduce {name!s} {{{len_rule!s}}})")
                     case Accept():
                         row.append("accept")
                     case _:

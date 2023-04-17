@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from more_itertools import one
 
-from grammar import CFG, Expansion, NonTerminal, Terminal
+from grammar import Grammar, NonTerminal, Terminal
 from lr.core import Goto, LRState, Reduce, Shift, T
 from lr.lr0 import LR0Item, LR0ParsingTable
 
@@ -19,7 +19,7 @@ class AugmentedSymbol(NonTerminal):
 
 
 class LALR1ParsingTable(LR0ParsingTable):
-    def __init__(self, grammar: CFG):
+    def __init__(self, grammar: Grammar):
         super().__init__(grammar, reduce=False)
         self.lookaheads = self.compute_lookaheads()
         self.compute_reduce_actions()
@@ -30,23 +30,21 @@ class LALR1ParsingTable(LR0ParsingTable):
                 lookahead = self.lookaheads[state][item]
                 for symbol in lookahead:
                     if (state, symbol.name) not in self:
-                        self[(state, symbol.name)] = Reduce(item.name, len(item.rule))
+                        self[(state, symbol.name)] = Reduce(
+                            item.name, len(item.expansion)
+                        )
                     else:
                         raise ValueError(
                             f"Encountered conflict on \n"
                             f" state: {str(state)}\n and symbol: {symbol.name}\n"
                             f"  {self[(state, symbol.name)]} and \n"
-                            f"  {Reduce(item.name, len(item.rule))}"
+                            f"  {Reduce(item.name, len(item.expansion))}"
                         )
 
     def compute_augmented_grammar(
         self,
-    ) -> tuple[CFG, dict[LRState, dict[NonTerminal, AugmentedSymbol]]]:
-        augmented_grammar = CFG(
-            start_symbol=AugmentedSymbol(
-                self.grammar.start, self.states[0], LRState[LR0Item](cls=LR0Item)
-            )
-        )
+    ) -> tuple[Grammar, dict[LRState, dict[NonTerminal, AugmentedSymbol]]]:
+        augmented_grammar = Grammar.Builder()
 
         old2new: dict[LRState, dict[NonTerminal, AugmentedSymbol]] = defaultdict(dict)
 
@@ -55,7 +53,7 @@ class LALR1ParsingTable(LR0ParsingTable):
                 if item.at_start:
                     (name, dot, rule) = item
                     # trace out the path of this rule
-                    augmented_rule = Expansion()
+                    augmented_rule = []
                     new_name = AugmentedSymbol(
                         name, start_state, self.goto(start_state, name)
                     )
@@ -77,9 +75,9 @@ class LALR1ParsingTable(LR0ParsingTable):
                             case _:
                                 raise Exception("Unexpected action")
                     old2new[start_state][name] = new_name
-                    augmented_grammar.add_rule(new_name, augmented_rule)
+                    augmented_grammar.add_expansion(new_name, augmented_rule)
 
-        return augmented_grammar, old2new
+        return augmented_grammar.build(), old2new
 
     def get_only_completable_item(
         self, current_state: LRState[LR0Item], current_item: LR0Item
@@ -89,10 +87,10 @@ class LALR1ParsingTable(LR0ParsingTable):
                 item
                 for item in current_state
                 if item.name == current_item.name
-                and item.rule == current_item.rule
+                and item.expansion == current_item.expansion
                 and (
                     item.completed()
-                    or (item.rule[item.dot] and item.name == self.grammar.start)
+                    or (item.expansion[item.dot] and item.name == self.grammar.start)
                 )
             ),
             too_short=ValueError(f"No completable item found in: {current_state}"),
@@ -111,7 +109,7 @@ class LALR1ParsingTable(LR0ParsingTable):
             for current_item in start_state:
                 if current_item.at_start:
                     current_state = start_state
-                    for symbol in current_item.rule:
+                    for symbol in current_item.expansion:
                         if (current_state, symbol.name) == self.accept:
                             continue
                         match self[(current_state, symbol.name)]:
@@ -148,8 +146,6 @@ if __name__ == "__main__":
     }
 
     g = """
-        <S>
-        <S> -> <E>
         <E> -> <L> = <R> | <R>
         <L> -> char | *<R>
         <R> -> <L>
@@ -158,5 +154,4 @@ if __name__ == "__main__":
     cfg = parse_grammar(g, table)
     print_rich(pretty_repr(cfg))
     p = LALR1ParsingTable(cfg)
-    p.draw_with_graphviz()
-    print_rich(pretty_repr(p))
+    print_rich(p.to_pretty_table())

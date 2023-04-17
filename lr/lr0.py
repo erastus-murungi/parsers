@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from functools import cache
 
+from more_itertools import one
 from rich.traceback import install
 
 from grammar import EMPTY, EOF, Expansion, NonTerminal, Symbol, Terminal
@@ -13,30 +14,30 @@ install(show_locals=True)
 class LR0Item:
     name: NonTerminal
     dot: int
-    rule: Expansion
+    expansion: Expansion
 
     def __repr__(self):
         return (
-            f"{self.name!r} -> {' '.join(repr(sym) for sym in self.rule[:self.dot])}"
+            f"{self.name!r} -> {' '.join(repr(sym) for sym in self.expansion[:self.dot])}"
             f" . "
-            f"{' '.join(repr(sym) for sym in self.rule[self.dot:])}"
+            f"{' '.join(repr(sym) for sym in self.expansion[self.dot:])}"
         )
 
     def __str__(self):
         return (
-            f"{self.name!s} -> {' '.join(str(sym) for sym in self.rule[:self.dot])}"
+            f"{self.name!s} -> {' '.join(str(sym) for sym in self.expansion[:self.dot])}"
             f" . "
-            f"{' '.join(str(sym) for sym in self.rule[self.dot:])}"
+            f"{' '.join(str(sym) for sym in self.expansion[self.dot:])}"
         )
 
     def __iter__(self):
-        yield from [self.name, self.dot, self.rule]
+        yield from [self.name, self.dot, self.expansion]
 
     def advance(self):
-        return LR0Item(self.name, self.dot + 1, self.rule)
+        return LR0Item(self.name, self.dot + 1, self.expansion)
 
     def completed(self):
-        return self.dot >= len(self.rule)
+        return self.dot >= len(self.expansion)
 
     @property
     def at_start(self):
@@ -123,7 +124,7 @@ class LR0ParsingTable(LRTable[LR0Item]):
         assert sym is not EMPTY and sym is not EOF
         kernel: LRState[LR0Item] = LRState(cls=state.type)
         for item in state.yield_unfinished():
-            if item.rule[item.dot] == sym:
+            if item.expansion[item.dot] == sym:
                 kernel.append(item.advance())
         return self.closure(kernel)
 
@@ -133,7 +134,7 @@ class LR0ParsingTable(LRTable[LR0Item]):
             LR0Item(
                 self.grammar.start,
                 0,
-                self.grammar[self.grammar.start][0].append_marker(EOF),
+                one(self.grammar[self.grammar.start]).append(EOF),
             ),
             cls=LR0Item,
         )
@@ -143,13 +144,15 @@ class LR0ParsingTable(LRTable[LR0Item]):
             for item in state.yield_finished():
                 for symbol in self.grammar.terminals:
                     if (state, symbol.name) not in self:
-                        self[(state, symbol.name)] = Reduce(item.name, len(item.rule))
+                        self[(state, symbol.name)] = Reduce(
+                            item.name, len(item.expansion)
+                        )
                     else:
                         raise ValueError(
                             f"Encountered conflict on \n"
                             f" state: {str(state)}\n and symbol: {symbol.name}\n"
                             f"  {self[(state, symbol.name)]} and \n"
-                            f"  Reduce({item.name}, {len(item.rule)})"
+                            f"  Reduce({item.name}, {len(item.expansion)})"
                         )
 
     def construct(self):
@@ -161,7 +164,7 @@ class LR0ParsingTable(LRTable[LR0Item]):
             changing = False
             for state in list(states.keys()):
                 for item in state.yield_unfinished():
-                    dot, rule = item.dot, item.rule
+                    dot, rule = item.dot, item.expansion
                     symbol = rule[dot]
                     if symbol is EOF:
                         # accept action
@@ -186,52 +189,3 @@ class LR0ParsingTable(LRTable[LR0Item]):
         self.states = list(states)
         if self.reduce:
             self.compute_reduce_actions()
-
-
-if __name__ == "__main__":
-    from rich import print as print_rich
-    from rich.pretty import pretty_repr
-
-    from utils.parse_grammar import parse_grammar
-
-    # table = {
-    #     "x": "x",
-    #     "(": "(",
-    #     ")": ")",
-    #     ",": ",",
-    # }
-    # g = """
-    #         <S'>
-    #         <S'> -> <S>
-    #         <S> -> (<L>)
-    #         <L> -> <S>
-    #         <S> -> x
-    #         <L> -> <L>,<S>
-    # """
-    table = {
-        "+": "+",
-        "*": "*",
-        "(": "(",
-        ")": ")",
-    }
-
-    g = """
-    <E'>
-    <E'> -> <E>
-    <E> -> <E>+<T>
-    <E> -> <T>
-    <T> -> <T>*<F>
-    <T> -> <F>
-    <F> -> (<E>)
-    <F> -> integer
-    
-    """
-
-    cfg = parse_grammar(g, table)
-    print_rich(pretty_repr(cfg))
-
-    p = LR0ParsingTable(cfg)
-
-    p.draw_with_graphviz()
-
-    print_rich(p.to_pretty_table())

@@ -1,2 +1,2 @@
-from .cfg import CFG
+from .cfg import Grammar
 from .core import *

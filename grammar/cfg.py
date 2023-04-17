@@ -1,11 +1,13 @@
 from collections import defaultdict
-from functools import lru_cache
 from typing import Sequence
+
+from more_itertools import first
+
+from utils.frozendict import FrozenDict
 
 from .core import (
     EMPTY,
     EOF,
-    Definition,
     Expansion,
     FirstSet,
     FollowSet,
@@ -25,91 +27,21 @@ def update_set(set1, set2):
     return set1 != copy
 
 
-class CFG(dict[NonTerminal, Definition]):
-    """
-    Notes: https://fileadmin.cs.lth.se/cs/Education/EDAN65/2020/lectures/L05A.pdf
-    """
+class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
+    __slots__ = ("terminals", "non_terminals", "start")
 
-    __slots__ = (
-        "_start",
-        "_terminals",
-        "_current_time",
-    )
+    def __init__(
+        self,
+        mapping: dict[NonTerminal, frozenset[Expansion]],
+        terminals: frozenset[Terminal],
+        start: NonTerminal,
+        non_terminals: frozenset[NonTerminal],
+    ):
+        super().__init__(mapping)
+        self.terminals = terminals
+        self.non_terminals = non_terminals
+        self.start = start
 
-    def __init__(self, start_symbol: NonTerminal):
-        super().__init__()
-        self._start: NonTerminal = start_symbol
-        self._terminals: set[Terminal] = {EOF}
-        self._current_time = 0
-
-    def __hash__(self):
-        unique_print = (id(self), self._current_time)
-        return hash(unique_print)
-
-    def __len__(self):
-        return super().__len__() - 1
-
-    @property
-    def start(self) -> NonTerminal:
-        return self._start
-
-    @property
-    def non_terminals(self) -> set[NonTerminal]:
-        return set(self.keys())
-
-    @property
-    def terminals(self) -> set[Terminal]:
-        return self._terminals.copy()
-
-    def add_rule(self, origin: NonTerminal, expansion: Expansion) -> None:
-        assert isinstance(origin, NonTerminal)
-        if EOF in expansion:
-            raise ValueError(
-                "you are not allowed to explicit add an EOF token, "
-                "it is implicitly added by the grammar object"
-            )
-        if EMPTY in expansion:
-            raise ValueError(
-                "you are not allowed to explicit add a sentinel, "
-                "pass in empty SententialForm instead e.g "
-                "`add_rule(var, Rule([]))`"
-            )
-
-        if origin == self._start:
-            if origin in self and len(self[origin]) > 0:
-                raise ValueError(
-                    "you are not allowed to add a rule of the form "
-                    f"`<START> => rule1 | rule2 | rule3` because it is ambiguous\n"
-                    f"The start symbol should have only one production rule, implicitly by an EOF token"
-                )
-            else:
-                super().__setitem__(origin, Definition([expansion]))
-        else:
-            self._terminals.update(
-                (symbol for symbol in expansion if isinstance(symbol, Terminal))
-            )
-            if origin not in self:
-                super().__setitem__(origin, Definition())
-            if len(expansion) == 0:
-                self[origin].append(expansion.append_marker(EMPTY))
-            else:
-                self[origin].append(expansion)
-        self._current_time += 1
-
-    def add_definition(self, origin: NonTerminal, definition: Definition) -> None:
-        if origin in self:
-            raise ValueError(
-                "you are not allowed overwrite a definition that is already in the grammar"
-            )
-        self[origin] = definition
-        self._current_time += 1
-
-    def __repr__(self) -> str:
-        return "\n".join(
-            f"{repr(rhs)} => {repr(definition)}" for rhs, definition in self.items()
-        )
-
-    @lru_cache(maxsize=1)  # only remember the last nullable set
     def gen_nullable(self) -> NullableSet:
         NULLABLE: NullableSet = {EMPTY}
 
@@ -132,7 +64,6 @@ class CFG(dict[NonTerminal, Definition]):
         FIRST = self.gen_first()
         return FIRST[x] | self.first(xs) if (x in self.gen_nullable()) else FIRST[x]
 
-    @lru_cache(maxsize=1)  # only remember the last first set
     def gen_first(self) -> FirstSet:
         FIRST: FirstSet = defaultdict(set)
         FIRST.update({terminal: {terminal} for terminal in self.terminals})
@@ -151,7 +82,6 @@ class CFG(dict[NonTerminal, Definition]):
                             break
         return FIRST
 
-    @lru_cache(maxsize=1)  # only remember the last follow set
     def gen_follow(self) -> FollowSet:
         FOLLOW: FollowSet = defaultdict(set)
         FOLLOW[self.start] = {EOF}
@@ -174,3 +104,94 @@ class CFG(dict[NonTerminal, Definition]):
 
     def __setitem__(self, key, value):
         raise Exception("Cannot modify grammar; use add_rule instead")
+
+    def __str__(self) -> str:
+        return "\n".join(
+            f"{rhs!s} => {expansion!s}"
+            for rhs, definition in self.items()
+            for expansion in definition
+        )
+
+    def __repr__(self) -> str:
+        return "\n".join(
+            f"{rhs!r} => {expansion!r}"
+            for rhs, definition in self.items()
+            for expansion in definition
+        )
+
+    class Builder:
+        """
+        Notes: https://fileadmin.cs.lth.se/cs/Education/EDAN65/2020/lectures/L05A.pdf
+        """
+
+        __slots__ = ("_implicit_start", "_dict")
+
+        def __init__(self, start="START") -> None:
+            super().__init__()
+            self._dict: dict[NonTerminal, set[Expansion]] = defaultdict(set)
+            self._implicit_start: NonTerminal = NonTerminal(start.capitalize())
+
+        def add_expansion(
+            self, origin: NonTerminal, seq: Sequence[Symbol]
+        ) -> "Grammar.Builder":
+            assert isinstance(origin, NonTerminal)
+            if EOF in seq:
+                raise ValueError(
+                    "you are not allowed to explicit add an EOF token, "
+                    "it is implicitly added by the grammar object"
+                )
+            if seq.count(EMPTY) > 1:
+                raise ValueError(
+                    "you cannot have more than one empty symbol in an expansion"
+                )
+            expansion = Expansion(seq)
+
+            # it is always assumed that the first symbol of your grammar is the start symbol
+            if origin == self._implicit_start:
+                raise ValueError(
+                    f"grammar with name {self._implicit_start} not allowed \n"
+                    f"{self._implicit_start} is an implicit start symbol used by the grammar object \n"
+                    f"you can change the name of the start symbol by "
+                    f"passing in a different name to the grammar builder"
+                )
+            self._dict[origin].add(expansion)
+            return self
+
+        def add_definition(
+            self, origin: NonTerminal, definition: set[Expansion]
+        ) -> "Grammar.Builder":
+            if origin in self._dict:
+                raise ValueError(
+                    "you are not allowed overwrite a definition that is already in the grammar"
+                )
+            self._dict[origin] = definition
+            return self
+
+        def build(self) -> "Grammar":
+            if not self._dict:
+                raise ValueError("grammar must have at least one rule")
+            return Grammar(
+                mapping={
+                    **{
+                        self._implicit_start: frozenset(
+                            [Expansion({first(self._dict)})]
+                        )
+                    },
+                    **{
+                        origin: frozenset(expansions)
+                        for origin, expansions in self._dict.items()
+                    },
+                },
+                terminals=frozenset(
+                    {EOF}
+                    | {
+                        symbol
+                        for expansions in self._dict.values()
+                        for expansion in expansions
+                        for symbol in expansion
+                        if isinstance(symbol, Terminal)
+                    }
+                ),
+                start=self._implicit_start,
+                non_terminals=frozenset(self._dict.keys()),
+            )

@@ -1,12 +1,12 @@
 from prettytable import PrettyTable
 
-from grammar import CFG, EMPTY, Expansion, NonTerminal
+from grammar import EMPTY, Expansion, Grammar, NonTerminal
 
 
 class LL1ParsingTable(dict[tuple[NonTerminal, str], Expansion]):
-    def __init__(self, grammar: CFG):
+    def __init__(self, grammar: Grammar):
         super().__init__()
-        self.grammar: CFG = grammar
+        self.grammar: Grammar = grammar
         self.construct()
 
     def construct(self):
@@ -20,12 +20,6 @@ class LL1ParsingTable(dict[tuple[NonTerminal, str], Expansion]):
                 if EMPTY in first:
                     for terminal in FOLLOW[origin]:
                         self[(origin, terminal.name)] = expansion
-
-    def __str__(self):
-        return self.to_pretty_table()
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}({super().__repr__()})"
 
     def __getitem__(self, item: tuple[NonTerminal, str]) -> Expansion:
         return super().__getitem__(item)
@@ -57,3 +51,6 @@ class LL1ParsingTable(dict[tuple[NonTerminal, str], Expansion]):
             table.add_row(row)
 
         return table
+
+    def __str__(self):
+        return self.to_pretty_table()

@@ -1,87 +1,71 @@
-from rich import print as print_rich
-from rich.pretty import pretty_repr
 from rich.traceback import install
 
-from recognizers.recognizers import DFSTopDownLeftmostRecognizer, LL1Recognizer
+from parsers.parser import EarleyParser, LL1Parser
+from utils.dot import draw_tree
+from utils.grammars import GRAMMAR3, GRAMMAR_0N1N
 from utils.parse_grammar import parse_grammar
-from utils.tokenizer import Tokenizer
 
-install(show_locals=True)
+install(show_locals=False)
 
 
 if __name__ == "__main__":
-
+    # table = {
+    #     "+": "+",
+    #     "*": "*",
+    #     "(": "(",
+    #     ")": ")",
+    # }
     # g = """
-    #         <E>
-    #         <E> ::= integer
-    #         <E> ::= (<E> <Op> <E>)
-    #         <Op> ::= + | *
+    #     <Expr> -> <Expr> + <Term> | <Term>
+    #     <Term> -> <Term> * <Factor> | <Factor>
+    #     <Factor> -> (<Expr>) | integer
+    # """
+
+    table, g = GRAMMAR3
+
+    # table = {
+    #     "(": "(",
+    #     ")": ")",
+    #     "+": "+",
+    #     "*": "*",
+    # }
+    #
+    # g = """
+    #      <S>
+    #      <S> -> <E>
+    #      <E> -> integer
+    #      <E> -> (<E> <Op> <E>)
+    #      <Op> -> + | *
+    # """
+    # g = """
+    # <G>
+    # <G> -> <A>
+    # <A> -> <> | <B>
+    # <B> -> <A>
+    #
     # """
     #
-    # cfg = ContextFreeGrammar.from_string(g)
-    # rprint(pretty_repr(cfg))
-    # rprint(pretty_repr(cfg.non_terminals))
-    #
-    # tokens = Tokenizer("((10 + 7) * 7)").get_tokens_no_whitespace()
-    # rprint(pretty_repr(cfg.leftmost_top_down_parsing_dfs(tokens)))
-    # rprint(pretty_repr(cfg.nullable()))
-    # rprint(pretty_repr(cfg.first()))
-    # rprint(pretty_repr(cfg.follow()))
-    # rprint(pretty_repr(cfg.parsing_table()))
-    # rprint(pretty_repr(cfg.match(tokens)))
+    # cfg = parse_grammar(g, table)
+    # earley_parser = EarleyParser(cfg, "^a+(?:ab)[a-z]\\w+c{1,3}$", table)
+    # trees = [t for t in earley_parser.parse()]
+    # print(len(trees))
+    # for i, tree in enumerate(trees[:5]):
+    #     draw_tree(tree, f"tree_{i}.pdf")
 
-    # g = """
-    #         <A>
-    #         <A> ::= <A>b
-    #         <A> ::= c
-    # """
-    # g = """
-    #         <A>
-    #         <A> ::= c<B>
-    #         <B> ::= <>
-    #         <B> ::= b<B>
-    # """
-    tk_table = {
-        "+": "+",
-        "(": "(",
-        "*": "*",
-        ")": ")",
-        "/": "/",
-        "-": "-",
-    }
-    g = """
-            <E>
-            <E> ::= <T><E'>
-            <E'> ::= + <T><E'> | <>
-            <T> ::= <F><T'>
-            <T'> ::= * <F><T'> | <>
-            <F> ::= (<E>) | integer | float
-    """
-    # g = """
-    #     <EXPRESSION>
-    #     <EXPRESSION> ::= <VALUE>
-    #     <EXPRESSION> ::= (<EXPRESSION> <OP> <EXPRESSION>)
-    #     <OP> ::= + | * | - | /
-    #     <VALUE> ::= integer | float
-    # """
+    # cfg = parse_grammar(g, table)
+    # earley_parser = EarleyParser(cfg, "0011", table)
+    # trees = [t for t in earley_parser.parse()]
+    # print(len(trees))
+    # for i, tree in enumerate(trees[:5]):
+    #     draw_tree(tree, f"tree_{i}.pdf")
 
-    # g = """
-    # <Expr>
-    # <Expr> ::= <Expr> + <Term> | <Term>
-    # <Term> ::= <Term> * <Factor> | <Factor>
-    # <Factor> ::= (<Expr>) | i
-    # """
+    # ll1_parser = LL1Parser(cfg, "01", table)
+    # tree = ll1_parser.parse()
+    # draw_tree(tree, f"tree_ll1.pdf")
 
-    cfg = parse_grammar(g, tk_table)
-    print_rich(pretty_repr(cfg))
-    # rprint(pretty_repr(cfg.non_terminals))
-
-    tks = Tokenizer("(10) + 10", tk_table).get_tokens_no_whitespace()
-
-    # assert BFSTopDownLeftmostRecognizer(cfg).recognizes(tks)
-    assert DFSTopDownLeftmostRecognizer(cfg).recognizes(tks)
-
-    print_rich(pretty_repr(cfg.gen_nullable()))
-    print_rich(pretty_repr(cfg.gen_first()))
-    print_rich(pretty_repr(cfg.gen_follow()))
-    assert LL1Recognizer(cfg).recognizes(tks)
+    cfg = parse_grammar(g, table)
+    earley_parser = EarleyParser(cfg, "book the flight through Houston", table)
+    trees = [t for t in earley_parser.parse()]
+    print(len(trees))
+    for i, tree in enumerate(trees[:5]):
+        draw_tree(tree, f"tree_{i}.pdf")

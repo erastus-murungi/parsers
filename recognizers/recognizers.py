@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import cast
+from typing import Literal, cast
 
-from earley import gen_early_sets
-from grammar import CFG, EMPTY, EOF, Expansion, NonTerminal, Terminal
+from earley import gen_earley_sets
+from grammar import EMPTY, EOF, Expansion, Grammar, NonTerminal, Terminal
 from ll import LL1ParsingTable
 from lr import (
     Accept,
@@ -25,23 +25,25 @@ class RecognizerError(Exception):
 
 
 class Recognizer(ABC):
-    def __init__(self, grammar: CFG):
-        self.grammar = grammar
+    def __init__(self, grammar: Grammar, source: str, table):
+        self.grammar: Grammar = grammar
+        self.source: str = source
+        self.tokens: list[Token] = Tokenizer(source, table).get_tokens_no_whitespace()
 
     @abstractmethod
-    def recognizes(self, tokens: list[Token]) -> bool:
+    def recognizes(self) -> bool:
         ...
 
 
 class BFSTopDownLeftmostRecognizer(Recognizer):
-    def recognizes(self, tokens: list[Token]) -> bool:
+    def recognizes(self) -> bool:
         rules: deque[Expansion] = deque([Expansion([self.grammar.start, EOF])])
         seen: set[Expansion] = set()
         nullable_set = self.grammar.gen_nullable()
 
         n_iters = 0
         while rules and n_iters < MAX_ITERATIONS:
-            if (rule := rules.popleft()).matches(tokens):
+            if (rule := rules.popleft()).matches(self.tokens):
                 return True
 
             seen.add(rule)
@@ -50,7 +52,7 @@ class BFSTopDownLeftmostRecognizer(Recognizer):
                 for replacement in self.grammar[symbol]:
                     if (
                         next_form := rule.perform_derivation(index, replacement)
-                    ).should_prune(tokens, seen, nullable_set):
+                    ).should_prune(self.tokens, seen, nullable_set):
                         continue
                     rules.append(next_form)
 
@@ -63,14 +65,14 @@ class BFSTopDownLeftmostRecognizer(Recognizer):
 
 
 class DFSTopDownLeftmostRecognizer(Recognizer):
-    def recognizes(self, tokens: list[Token]) -> bool:
+    def recognizes(self) -> bool:
         rules: list[Expansion] = [Expansion([self.grammar.start, EOF])]
         seen: set[Expansion] = set()
         nullable_set = self.grammar.gen_nullable()
 
         n_iters = 0
         while rules and n_iters < MAX_ITERATIONS:
-            if (rule := rules.pop()).matches(tokens):
+            if (rule := rules.pop()).matches(self.tokens):
                 return True
 
             seen.add(rule)
@@ -80,7 +82,7 @@ class DFSTopDownLeftmostRecognizer(Recognizer):
                 for replacement in self.grammar[symbol]:
                     if (
                         next_form := rule.perform_derivation(index, replacement)
-                    ).should_prune(tokens, seen, nullable_set):
+                    ).should_prune(self.tokens, seen, nullable_set):
                         continue
 
                     next_in_stack.append(next_form)
@@ -95,13 +97,13 @@ class DFSTopDownLeftmostRecognizer(Recognizer):
 
 
 class LL1Recognizer(Recognizer):
-    def recognizes(self, tokens: list[Token]) -> bool:
+    def recognizes(self) -> bool:
         parsing_table = LL1ParsingTable(self.grammar)
         stack, token_index = [EOF, self.grammar.start], 0
 
         while stack:
             symbol = stack.pop()
-            token = tokens[token_index]
+            token = self.tokens[token_index]
             if isinstance(symbol, Terminal):
                 if symbol.matches(token):
                     token_index += symbol is not EMPTY
@@ -118,35 +120,26 @@ class LL1Recognizer(Recognizer):
                         f'expecting one of ({", ".join(terminal.name for terminal in self.grammar.gen_first()[symbol])}), '
                         f"but found {token.id!s}"
                     )
-        assert token_index >= len(tokens)
+        assert token_index >= len(self.tokens)
         return True
 
 
 class EarleyRecognizer(Recognizer):
-    def recognizes(self, tokens: list[Token]) -> bool:
-        earley_sets = gen_early_sets(self.grammar, tokens)
-        # are complete (the fat dot is at the end),
-        # have started at the beginning (state set 0),
-        # have the same name that has been chosen at the beginning ("Sum").
-
-        return any(
-            item.dot == len(item.rule)
-            and item.explicit_index == 0
-            and item.name == self.grammar.start
-            for item in earley_sets[-1]
-        )
+    def recognizes(self) -> bool:
+        gen_earley_sets(self.grammar, self.tokens, self.source)
+        return True
 
 
 class LR0Recognizer(Recognizer):
     def get_parsing_table(self):
         return LR0ParsingTable(self.grammar)
 
-    def recognizes(self, tokens: list[Token]) -> bool:
+    def recognizes(self) -> bool:
         parsing_table = self.get_parsing_table()
         stack, token_index = [parsing_table.states[0]], 0
         while stack:
             current_state = stack[-1]
-            current_token = tokens[token_index]
+            current_token = self.tokens[token_index]
             match parsing_table.get((current_state, current_token.id)):
                 # Advance input one token; push state n on stack.
                 # TODO: assert that current_state corresponds to the current_token
@@ -154,7 +147,7 @@ class LR0Recognizer(Recognizer):
                     stack.append(current_state)
                     token_index += current_token.id != EOF.name
                 case Reduce(lhs, len_rhs):
-                    stack = stack[:-len_rhs]
+                    stack = stack[: -len_rhs or None]
                     match parsing_table[(stack[-1], lhs.name)]:
                         case Goto(current_state):
                             stack.append(current_state)
@@ -169,7 +162,7 @@ class LR0Recognizer(Recognizer):
                         f"Unexpected {current_token.id} at {current_token.loc}"
                     )
         raise SyntaxError(
-            f"Syntax error at {tokens[token_index] if token_index < len(tokens) else EOF}"
+            f"Syntax error at {self.tokens[token_index] if token_index < len(self.tokens) else EOF}"
         )
 
 
@@ -186,6 +179,33 @@ class LR1Recognizer(LR0Recognizer):
 class LALR1Recognizer(LR0Recognizer):
     def get_parsing_table(self):
         return LALR1ParsingTable(self.grammar)
+
+
+def recognize(
+    grammar: Grammar,
+    source: str,
+    table: dict,
+    *,
+    recognizer: Literal["earley", "lalr1", "ll1", "slr", "lr1", "lr0", "dfs"],
+) -> bool:
+
+    match recognizer:
+        case "earley":
+            return EarleyRecognizer(grammar, source, table).recognizes()
+        case "lalr1":
+            return LALR1Recognizer(grammar, source, table).recognizes()
+        case "ll1":
+            return LL1Recognizer(grammar, source, table).recognizes()
+        case "slr":
+            return SLRRecognizer(grammar, source, table).recognizes()
+        case "lr1":
+            return LR1Recognizer(grammar, source, table).recognizes()
+        case "lr0":
+            return LR0Recognizer(grammar, source, table).recognizes()
+        case "dfs":
+            return DFSTopDownLeftmostRecognizer(grammar, source, table).recognizes()
+        case _:
+            raise ValueError(f"Unknown recognizer {recognizer}")
 
 
 if __name__ == "__main__":
@@ -226,12 +246,6 @@ if __name__ == "__main__":
     # g = """
     #     <S>
     #     <S> -> <E>
-    #     <E> -> <T>; | <T> + <E>
-    #     <T> -> (<E>) | integer
-    # """
-    # g = """
-    #     <S>
-    #     <S> -> <E>
     #     <E> -> <T> | <T> + <E>
     #     <T> -> (<E>) | integer
     # """
@@ -251,44 +265,3 @@ if __name__ == "__main__":
     #     <L> -> char | *<R>
     #     <R> -> <L>
     # """
-
-    g = """
-        <program>
-        <program> -> <expression>
-        <expression> -> <term> | <term> <add_op> <expression>
-        <term> -> <factor> | <factor> <mult_op> <term>
-        <factor> -> <power> | <power> ^ <factor>
-        <power> -> <number> | ( <expression> )
-        <number> -> <digit> | <digit> <number>
-        <add_op> -> + | -
-        <mult_op> -> * | /
-        <digit> -> integer | float
-    """
-
-    table = {
-        "+": "+",
-        "-": "-",
-        "*": "*",
-        "/": "/",
-        "(": "(",
-        ")": ")",
-        "^": "^",
-    }
-
-    # table = {
-    #     "+": "+",
-    #     "-": "-",
-    #     "*": "*",
-    #     "a": "a",
-    # }
-    #
-    # g = """
-    #     <S>
-    #     <S> -> <A>
-    #     <A> -> <A> + <A> | <A> − <A> | a
-    # """
-
-    cfg = parse_grammar(g, table)
-    print_rich(pretty_repr(cfg))
-    tks = Tokenizer("1 + (2 + 3)", table).get_tokens_no_whitespace()
-    print_rich(pretty_repr(LL1Recognizer(cfg).recognizes(tks)))

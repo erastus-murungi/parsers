@@ -9,11 +9,13 @@ class SLRParsingTable(LR0ParsingTable):
             for item in state.yield_finished():
                 for symbol in follow_set[item.name]:
                     if (state, symbol.name) not in self:
-                        self[(state, symbol.name)] = Reduce(item.name, len(item.rule))
+                        self[(state, symbol.name)] = Reduce(
+                            item.name, len(item.expansion)
+                        )
                     else:
                         raise ValueError(
-                            f"Encountered shift/reduce conflict on \n"
+                            f"Encountered conflict on \n"
                             f" state: {str(state)}\n and symbol: {symbol.name}\n"
                             f"  {self[(state, symbol.name)]} and \n"
-                            f"  Reduce({item.name!s} -> {item.rule!s})"
+                            f"  Reduce({item.name!s} -> {item.expansion!s})"
                         )
