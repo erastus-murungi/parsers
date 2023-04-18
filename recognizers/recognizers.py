@@ -192,7 +192,6 @@ def recognize(
     *,
     recognizer: Literal["earley", "lalr1", "ll1", "slr", "lr1", "lr0", "dfs"],
 ) -> bool:
-
     match recognizer:
         case "earley":
             return EarleyRecognizer(grammar, source, table).recognizes()

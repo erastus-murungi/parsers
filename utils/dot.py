@@ -6,7 +6,7 @@ from lr import Accept, Goto, LRTable, Reduce, Shift
 from parsers.parser import AST, ParseTree
 from utils import Token
 
-DIR = "../graphs/"
+DIR = "./graphs/"
 DOT_FILENAME = "tree.dot"
 GRAPH_TYPE = "pdf"
 

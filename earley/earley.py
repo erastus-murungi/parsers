@@ -1,6 +1,6 @@
 from typing import NamedTuple, Optional, cast
 
-from grammar import Expansion, Grammar, NonTerminal, Terminal
+from grammar import Expansion, Grammar, NonTerminal, Symbol, Terminal
 from lr import LRState
 from utils import Token
 
@@ -24,6 +24,9 @@ class EarleyItem(NamedTuple):
     def completed(self):
         return self.dot >= len(self.rule)
 
+    def next_symbol(self) -> Optional[Symbol]:
+        return self.rule[self.dot] if self.dot < len(self.rule) else None
+
 
 class EarleyError(SyntaxError):
     def __init__(
@@ -34,7 +37,7 @@ class EarleyError(SyntaxError):
         super().__init__(
             f"@ {failure_token.loc}:\n"
             f" > {source}\n"
-            f" > {'-'*failure_token.loc.offset}\n"
+            f" > {'-' * failure_token.loc.offset}\n"
             + "Expected one of:\n"
             + "\n".join(f"{ident} {tok!s}" for tok in expected_terminals)
             + f"\nbut encountered: {failure_token}"
@@ -42,7 +45,7 @@ class EarleyError(SyntaxError):
 
 
 def gen_earley_sets(
-    grammar: Grammar, tokens: list[Token], source: str
+    grammar: Grammar, tokens: list[Token], source: str, debug: int = True
 ) -> list[LRState[EarleyItem]]:
     # initialize the recognizer; we have exactly one set for each token
     assert len(tokens) > 0, "Cannot recognize an empty string"
@@ -62,6 +65,11 @@ def gen_earley_sets(
     )
     for pos, (token, earley_set) in enumerate(zip(tokens, earley_sets)):
         if not earley_set:
+            if debug:
+                from rich import print as rprint
+                from rich.pretty import pretty_repr
+
+                rprint(pretty_repr(earley_sets))
             raise EarleyError(
                 [
                     cast(Terminal, rule[dot])
@@ -73,24 +81,32 @@ def gen_earley_sets(
             )
         current_pos = 0
         while current_pos < len(earley_set):
-            name, dot, start, rule = earley_set[current_pos]
+            item = earley_set[current_pos]
+            completed, right = item.completed(), item.next_symbol()
 
-            if dot < len(rule):
-                right = rule[dot]
-                if isinstance(right, Terminal):
-                    if pos + 1 < len(earley_sets) and right.matches(token):
-                        earley_sets[pos + 1].append(earley_set[current_pos].advance())
-                elif isinstance(right, NonTerminal):
-                    if right in nullable_set:
-                        earley_set.append(earley_set[current_pos].advance())
+            # Scanner - the state is expecting a word, so if the
+            # expected word is next in the input, advance the
+            # rule past the word.
+            if not completed and isinstance(right, Terminal):
+                if pos + 1 < len(earley_sets) and right.matches(token):
+                    earley_sets[pos + 1].append(earley_set[current_pos].advance())
+            # Predictor - the state is expecting a constituent C,
+            # so add new states for all expansions of C, starting
+            # at the end of the current state
+            elif not completed and isinstance(right, NonTerminal):
+                if right in nullable_set:
+                    earley_set.append(earley_set[current_pos].advance())
 
-                    earley_set.extend(
-                        EarleyItem(right, 0, pos, rule) for rule in grammar[right]
-                    )
+                earley_set.extend(
+                    EarleyItem(right, 0, pos, rule) for rule in grammar[right]
+                )
+            # Completer - the state is complete, advance any
+            # states that were expecting a state like this (both
+            # the symbol and the location)
             else:
-                for item in earley_sets[start]:
-                    if not item.completed() and item.rule[item.dot] == name:
-                        earley_set.append(item.advance())
+                for other in earley_sets[item.explicit_index]:
+                    if not other.completed() and other.next_symbol() == item.name:
+                        earley_set.append(other.advance())
             current_pos += 1
 
     # we look for an items that:

@@ -2,11 +2,11 @@
     ID: %id%
 """
 from more_itertools import one
+from rich.traceback import install
 
 from grammar import EOF
 from parsers.parser import ParseTree
 from utils import Token, Tokenizer
-from rich.traceback import install
 
 Shift = Goto = Accept = int
 Reduce = tuple[int, int]

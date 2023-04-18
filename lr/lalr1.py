@@ -134,8 +134,8 @@ if __name__ == "__main__":
     from rich import print as print_rich
     from rich.pretty import pretty_repr
 
-    from utils.parse_grammar import parse_grammar
     from utils.grammars import GRAMMAR1
+    from utils.parse_grammar import parse_grammar
 
     cfg = parse_grammar(GRAMMAR1[1], GRAMMAR1[0])
     print_rich(pretty_repr(cfg))

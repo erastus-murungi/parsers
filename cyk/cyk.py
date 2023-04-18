@@ -74,7 +74,6 @@ def yield_trees(
     pointers: PointerTable,
     words: list[Token],
 ) -> Iterator[ParseTree]:
-
     assert EOF.matches(words[-1])
 
     def yield_trees_impl(current: NonTerminal, span: Span) -> Iterator[ParseTree]:
@@ -103,7 +102,6 @@ def yield_trees(
 def cyk_parse(
     grammar: Grammar, words: list[Token]
 ) -> tuple[Grammar, CYKResultsTable, PointerTable]:
-
     table: CYKResultsTable = defaultdict(set[NonTerminal])
     pointers: PointerTable = defaultdict(lambda: defaultdict(set[Pointer]))
     cnf_grammar: Grammar = to_cnf_with_unit_productions(grammar)

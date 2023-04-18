@@ -1,12 +1,12 @@
 import subprocess
 from collections import defaultdict
+from hmac import HMAC
 
 from rich.pretty import pretty_repr
 
 from grammar import Terminal
-from lr import LALR1ParsingTable, Shift, Goto, Reduce, Accept
+from lr import Accept, Goto, LALR1ParsingTable, Reduce, Shift
 from utils.parse_grammar import parse_grammar
-from hmac import HMAC
 
 GENERATED_FILE_NAME = "lalr1_generated.py"
 
@@ -59,6 +59,6 @@ def entry(table: dict[str, str], grammar_str: str):
 
 
 if __name__ == "__main__":
-    from utils.grammars import GRAMMAR2
+    from utils.grammars import DECAF_GRAMMAR
 
-    entry(GRAMMAR2[0], GRAMMAR2[1])
+    entry(DECAF_GRAMMAR[0], DECAF_GRAMMAR[1])

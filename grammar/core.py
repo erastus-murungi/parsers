@@ -105,7 +105,7 @@ class Expansion(tuple[Symbol]):
 
         # if we have a prefix of terminals which doesn't match the tokens
         # we should prune
-        for (symbol, token) in zip(self, tokens):
+        for symbol, token in zip(self, tokens):
             if isinstance(symbol, Terminal):
                 if not symbol.matches(token):
                     return True
