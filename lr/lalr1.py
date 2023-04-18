@@ -135,23 +135,9 @@ if __name__ == "__main__":
     from rich.pretty import pretty_repr
 
     from utils.parse_grammar import parse_grammar
+    from utils.grammars import GRAMMAR1
 
-    table = {
-        "+": "+",
-        ";": ";",
-        "(": "(",
-        ")": ")",
-        "=": "=",
-        "*": "*",
-    }
-
-    g = """
-        <E> -> <L> = <R> | <R>
-        <L> -> char | *<R>
-        <R> -> <L>
-    """
-
-    cfg = parse_grammar(g, table)
+    cfg = parse_grammar(GRAMMAR1[1], GRAMMAR1[0])
     print_rich(pretty_repr(cfg))
     p = LALR1ParsingTable(cfg)
     print_rich(p.to_pretty_table())
