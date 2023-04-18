@@ -1,49 +1,49 @@
 digraph G {  graph [fontname = "Courier New", engine="sfdp"];
  node [fontname = "Courier", style = rounded];
  edge [fontname = "Courier"];
-4565149824:from_false -> 4565148736:from_node [arrowhead=vee] 
-4565148736:from_false -> 4565148992:from_node [arrowhead=vee] 
-4565148992:from_false -> 4561530832:from_node [arrowhead=vee] 
-4565148736:from_false -> 4565149056:from_node [arrowhead=vee] 
-4565149056:from_false -> 4565148928:from_node [arrowhead=vee] 
-4565148928:from_false -> 4564072080:from_node [arrowhead=vee] 
-4565149056:from_false -> 4565150592:from_node [arrowhead=vee] 
-4565150592:from_false -> 4565149120:from_node [arrowhead=vee] 
-4565149120:from_false -> 4564072016:from_node [arrowhead=vee] 
-4565148736:from_false -> 4565149696:from_node [arrowhead=vee] 
-4565149696:from_false -> 4565149248:from_node [arrowhead=vee] 
-4565149248:from_false -> 4564041808:from_node [arrowhead=vee] 
-4565149696:from_false -> 4565149888:from_node [arrowhead=vee] 
-4565149888:from_false -> 4565149184:from_node [arrowhead=vee] 
-4565149184:from_false -> 4563995856:from_node [arrowhead=vee] 
-   4565149824 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="S"];
-   4565148736 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="VP"];
-   4565148736 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="VP"];
-   4565148992 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Verb"];
-   4565148992 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Verb"];
-   4561530832 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="book"];
-   4565148736 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="VP"];
-   4565149056 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
-   4565149056 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
-   4565148928 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Det"];
-   4565148928 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Det"];
-   4564072080 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="the"];
-   4565149056 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
-   4565150592 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Nominal"];
-   4565150592 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Nominal"];
-   4565149120 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Noun"];
-   4565149120 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Noun"];
-   4564072016 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="flight"];
-   4565148736 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="VP"];
-   4565149696 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="PP"];
-   4565149696 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="PP"];
-   4565149248 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Preposition"];
-   4565149248 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Preposition"];
-   4564041808 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="through"];
-   4565149696 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="PP"];
-   4565149888 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
-   4565149888 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
-   4565149184 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="ProperNoun"];
-   4565149184 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="ProperNoun"];
-   4563995856 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="Houston"];
+4380552512:from_false -> 4380553088:from_node [arrowhead=vee] 
+4380553088:from_false -> 4379801344:from_node [arrowhead=vee] 
+4379801344:from_false -> 4380342288:from_node [arrowhead=vee] 
+4380553088:from_false -> 4380554688:from_node [arrowhead=vee] 
+4380554688:from_false -> 4380550528:from_node [arrowhead=vee] 
+4380550528:from_false -> 4380340688:from_node [arrowhead=vee] 
+4380554688:from_false -> 4380545472:from_node [arrowhead=vee] 
+4380545472:from_false -> 4380554176:from_node [arrowhead=vee] 
+4380554176:from_false -> 4380508368:from_node [arrowhead=vee] 
+4380553088:from_false -> 4380547968:from_node [arrowhead=vee] 
+4380547968:from_false -> 4380554432:from_node [arrowhead=vee] 
+4380554432:from_false -> 4380518288:from_node [arrowhead=vee] 
+4380547968:from_false -> 4380548928:from_node [arrowhead=vee] 
+4380548928:from_false -> 4380553536:from_node [arrowhead=vee] 
+4380553536:from_false -> 4380445648:from_node [arrowhead=vee] 
+   4380552512 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="S"];
+   4380553088 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="VP"];
+   4380553088 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="VP"];
+   4379801344 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Verb"];
+   4379801344 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Verb"];
+   4380342288 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="book"];
+   4380553088 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="VP"];
+   4380554688 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
+   4380554688 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
+   4380550528 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Det"];
+   4380550528 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Det"];
+   4380340688 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="the"];
+   4380554688 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
+   4380545472 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Nominal"];
+   4380545472 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Nominal"];
+   4380554176 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Noun"];
+   4380554176 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Noun"];
+   4380508368 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="flight"];
+   4380553088 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="VP"];
+   4380547968 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="PP"];
+   4380547968 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="PP"];
+   4380554432 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Preposition"];
+   4380554432 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Preposition"];
+   4380518288 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="through"];
+   4380547968 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="PP"];
+   4380548928 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
+   4380548928 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
+   4380553536 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="ProperNoun"];
+   4380553536 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="ProperNoun"];
+   4380445648 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="Houston"];
 }

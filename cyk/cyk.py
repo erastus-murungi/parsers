@@ -11,7 +11,7 @@ from utils.dot import draw_tree
 from utils.grammars import GRAMMAR3
 
 Span = tuple[int, int]
-Pointer = tuple[int] | tuple[int, Symbol, Symbol] | tuple[Symbol]
+Pointer = int | NonTerminal | tuple[int, Symbol, Symbol]
 PointerTable = dict[Span, dict[NonTerminal, set[Pointer]]]
 CYKResultsTable = dict[Span, set[NonTerminal]]
 TodoList = dict[NonTerminal, list[Expansion]]
@@ -80,10 +80,10 @@ def yield_trees(
     def yield_trees_impl(current: NonTerminal, span: Span) -> Iterator[ParseTree]:
         for pointer in pointers[span][current]:
             match pointer:
-                case (NonTerminal() as nt,):
-                    for child in yield_trees_impl(nt, span):
+                case NonTerminal():
+                    for child in yield_trees_impl(pointer, span):
                         yield ParseTree(current, [child])
-                case (pos,) if isinstance(pos, int):  # int
+                case int(pos):
                     yield ParseTree(current, [words[pos]])
                 case (int(mid), NonTerminal() as left, NonTerminal() as right):
                     start, end = span
@@ -123,7 +123,7 @@ def cyk_parse(
             seen.add(head)
             for root in reversed_grammar[(head,)]:
                 table[span] |= {root}
-                pointers[span][root] |= {(head,)}
+                pointers[span][root] |= {head}
                 heads_todo |= {root}
 
     for col, word in enumerate(words):
@@ -135,7 +135,7 @@ def cyk_parse(
                     and expansion[0].matches(word)
                 ):
                     table[(col, col)] |= {root}
-                    pointers[(col, col)][root] |= {(col,)}
+                    pointers[(col, col)][root] |= {col}
         add_unaries((col, col))
 
     for length in range(2, len(words) + 1):
