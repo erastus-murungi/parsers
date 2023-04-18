@@ -192,13 +192,7 @@ def unfreeze(x: Union[FrozenDict, Dict[str, Any]]) -> Dict[Any, Any]:
     Returns:
       The unfrozen dictionary (a regular Python dict).
     """
-    if isinstance(x, FrozenDict):
-        # deep copy internal state of a FrozenDict
-        # the dict branch would also work here but
-        # it is much less performant because jax.tree_util.tree_map
-        # uses an optimized C implementation.
-        return jax.tree_util.tree_map(lambda y: y, x._dict)  # type: ignore
-    elif isinstance(x, dict):
+    if isinstance(x, (dict, FrozenDict)):
         ys = {}
         for key, value in x.items():
             ys[key] = unfreeze(value)
