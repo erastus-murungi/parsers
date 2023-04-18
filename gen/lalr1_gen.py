@@ -46,8 +46,10 @@ def entry(table: dict[str, str], grammar_str: str):
 
         with open(GENERATED_FILE_NAME, "w") as f1:
             f1.write(temp)
-
-    subprocess.run(["black", GENERATED_FILE_NAME])
+    try:
+        subprocess.run(["black", GENERATED_FILE_NAME])
+    except FileNotFoundError:
+        print("Black not found, skipping formatting")
 
     with open(GENERATED_FILE_NAME, "r") as f:
         temp = f.read()
@@ -57,6 +59,6 @@ def entry(table: dict[str, str], grammar_str: str):
 
 
 if __name__ == "__main__":
-    from utils.grammars import GRAMMAR1
+    from utils.grammars import GRAMMAR2
 
-    entry(GRAMMAR1[0], GRAMMAR1[1])
+    entry(GRAMMAR2[0], GRAMMAR2[1])
