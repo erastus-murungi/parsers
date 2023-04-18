@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Sequence
+from typing import Optional, Sequence
 
 from more_itertools import first
 
@@ -28,18 +28,20 @@ def update_set(set1, set2):
 
 
 class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
-    __slots__ = ("terminals", "non_terminals", "start")
+    __slots__ = ("terminals", "non_terminals", "start", "orig_start")
 
     def __init__(
         self,
         mapping: dict[NonTerminal, frozenset[Expansion]],
         terminals: frozenset[Terminal],
         start: NonTerminal,
+        orig_start: NonTerminal,
         non_terminals: frozenset[NonTerminal],
     ):
         super().__init__(mapping)
         self.terminals = terminals
         self.non_terminals = non_terminals
+        self.orig_start = orig_start
         self.start = start
 
     def gen_nullable(self) -> NullableSet:
@@ -124,12 +126,17 @@ class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
         Notes: https://fileadmin.cs.lth.se/cs/Education/EDAN65/2020/lectures/L05A.pdf
         """
 
-        __slots__ = ("_implicit_start", "_dict")
+        __slots__ = ("_implicit_start", "_dict", "_start")
 
-        def __init__(self, start="START") -> None:
+        def __init__(
+            self,
+            start: Optional[NonTerminal] = None,
+            implicit_start_name: str = "Start",
+        ) -> None:
             super().__init__()
             self._dict: dict[NonTerminal, set[Expansion]] = defaultdict(set)
-            self._implicit_start: NonTerminal = NonTerminal(start.capitalize())
+            self._implicit_start: NonTerminal = NonTerminal(implicit_start_name)
+            self._start = start
 
         def add_expansion(
             self, origin: NonTerminal, seq: Sequence[Symbol]
@@ -144,8 +151,6 @@ class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
                 raise ValueError(
                     "you cannot have more than one empty symbol in an expansion"
                 )
-            expansion = Expansion(seq)
-
             # it is always assumed that the first symbol of your grammar is the start symbol
             if origin == self._implicit_start:
                 raise ValueError(
@@ -154,7 +159,13 @@ class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
                     f"you can change the name of the start symbol by "
                     f"passing in a different name to the grammar builder"
                 )
-            self._dict[origin].add(expansion)
+
+            return self.add_expansion_no_check(origin, seq)
+
+        def add_expansion_no_check(
+            self, origin: NonTerminal, seq: Sequence[Symbol]
+        ) -> "Grammar.Builder":
+            self._dict[origin].add(Expansion(seq))
             return self
 
         def add_definition(
@@ -170,13 +181,10 @@ class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
         def build(self) -> "Grammar":
             if not self._dict:
                 raise ValueError("grammar must have at least one rule")
+            orig_start = self._start or first(self._dict)
             return Grammar(
                 mapping={
-                    **{
-                        self._implicit_start: frozenset(
-                            [Expansion({first(self._dict)})]
-                        )
-                    },
+                    **{self._implicit_start: frozenset([Expansion({orig_start})])},
                     **{
                         origin: frozenset(expansions)
                         for origin, expansions in self._dict.items()
@@ -194,4 +202,11 @@ class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
                 ),
                 start=self._implicit_start,
                 non_terminals=frozenset(self._dict.keys()),
+                orig_start=orig_start,
             )
+
+    def get_mutable_copy(self) -> dict[NonTerminal, list[Expansion]]:
+        mutable_copy = defaultdict(list)
+        for origin, expansions in self.items():
+            mutable_copy[origin] = list(expansions)
+        return mutable_copy

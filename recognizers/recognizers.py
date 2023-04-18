@@ -181,6 +181,10 @@ class LALR1Recognizer(LR0Recognizer):
         return LALR1ParsingTable(self.grammar)
 
 
+class CYKRecognizer(Recognizer):
+    pass
+
+
 def recognize(
     grammar: Grammar,
     source: str,

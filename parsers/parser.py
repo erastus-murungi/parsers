@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from itertools import product
-from typing import Iterator, NamedTuple, Required, TypedDict, Union, cast
+from typing import Iterator, NamedTuple, Required, Sequence, TypedDict, Union, cast
 
 from more_itertools import one
 from rich.traceback import install
@@ -26,7 +26,7 @@ install(show_locals=False)
 
 class AST(TypedDict):
     id: Required[str]
-    expansion: Required[list[Union[str, Token]]]
+    expansion: Required[list[Union["AST", Token]]]
 
 
 class ParseTree(NamedTuple):
@@ -153,7 +153,7 @@ class EarleyParser(Parser):
                 [], path_start_index, path_root.rule, path_end_index
             ):
                 item_start_index = path_start_index
-                children_possibilities: list[list[Token | ParseTree]] = []
+                children_possibilities: list[Sequence[Token | ParseTree]] = []
                 for item in path:
                     if isinstance(item, Token):
                         children_possibilities.append([item])

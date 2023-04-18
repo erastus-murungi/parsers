@@ -1,8 +1,9 @@
 import subprocess
 import sys
+from typing import Iterator
 
 from lr import Accept, Goto, LRTable, Reduce, Shift
-from parsers.parser import ParseTree
+from parsers.parser import AST, ParseTree
 from utils import Token
 
 DIR = "../graphs/"
@@ -10,32 +11,34 @@ DOT_FILENAME = "tree.dot"
 GRAPH_TYPE = "pdf"
 
 
-def yield_edges(root) -> tuple[str, str]:
+def yield_edges(
+    root,
+) -> Iterator[tuple[AST, Token]] | Iterator[tuple[ParseTree, Token]]:
     if isinstance(root, ParseTree):
         yield from yield_edges_parse_tree(root)
     else:
         yield from yield_edges_ast(root)
 
 
-def yield_edges_ast(root) -> tuple[str, str]:
+def yield_edges_ast(root) -> Iterator[tuple[AST, Token]]:
     for child in root["expansion"]:
         if isinstance(child, Token):
             yield root, child
         else:
             yield root, child
-            yield from yield_edges(child)
+            yield from yield_edges_ast(child)
 
 
-def yield_edges_parse_tree(root) -> tuple[str, str]:
+def yield_edges_parse_tree(root) -> Iterator[tuple[ParseTree, Token]]:
     for child in root.expansion:
         if isinstance(child, Token):
             yield root, child
         else:
             yield root, child
-            yield from yield_edges(child)
+            yield from yield_edges_parse_tree(child)
 
 
-def graph_prologue():
+def graph_prologue() -> str:
     return (
         'digraph G {  graph [fontname = "Courier New", engine="sfdp"];\n'
         + ' node [fontname = "Courier", style = rounded];\n'
@@ -43,11 +46,11 @@ def graph_prologue():
     )
 
 
-def graph_epilogue():
+def graph_epilogue() -> str:
     return "}"
 
 
-def escape(s: str):
+def escape(s: str) -> str:
     return (
         s.replace("\\", "\\\\")
         .replace("\t", "\\t")
@@ -96,7 +99,7 @@ def create_graph_pdf(
     # subprocess.run(["rm", output_filepath])
 
 
-def draw_tree(root, output_filename="tree.pdf"):
+def draw_tree(root: ParseTree | AST | Token, output_filename: str = "tree.pdf"):
     graph = [graph_prologue()]
     edges = []
     nodes = []

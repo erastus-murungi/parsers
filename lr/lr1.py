@@ -134,7 +134,6 @@ if __name__ == "__main__":
     print_rich(pretty_repr(cfg))
 
     p = LR1ParsingTable(cfg)
-    p.draw_with_graphviz()
     print_rich(p.to_pretty_table())
 
     print_rich(pretty_repr(LR1ParsingTable(cfg)))

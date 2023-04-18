@@ -1,164 +1,168 @@
-import re
 from collections import defaultdict
 from itertools import count, product
+from typing import Iterator
 
-from more_itertools import first, only
+from more_itertools import one
 
-from grammar import EOF, Expansion, Grammar, NonTerminal, Symbol, Terminal
+from grammar import EMPTY, EOF, Expansion, Grammar, NonTerminal, Symbol, Terminal
 from parsers.parser import ParseTree
 from utils import Token, Tokenizer
 from utils.dot import draw_tree
 from utils.grammars import GRAMMAR3
 
 Span = tuple[int, int]
+Pointer = tuple[int] | tuple[int, Symbol, Symbol] | tuple[Symbol]
+PointerTable = dict[Span, dict[NonTerminal, set[Pointer]]]
+CYKResultsTable = dict[Span, set[NonTerminal]]
+TodoList = dict[NonTerminal, list[Expansion]]
 
-TERM = "_TERM_"
-SPLIT = "_SPLIT_"
-
-
-def rename_in_expansion(work_list, origin, expansion, replacer, to_replace):
-    if to_replace in expansion:
-        new_expansion = [replacer if sym == to_replace else sym for sym in expansion]
-        work_list[origin].append(Expansion(new_expansion))
-        work_list[origin].remove(expansion)
+TERM = "_TERM"
+SPLIT = "_SPLIT"
+counter = count(0)
 
 
-def rename(
-    work_list: dict[NonTerminal, list], exp: Expansion, replacer: NonTerminal
-) -> None:
-    to_replace = first(exp)
-    for origin, expansions in work_list.items():
+def rename_solitary_terminals(
+    todo: TodoList, origin: NonTerminal, expansion: Expansion
+):
+    renamed: list[Symbol] = []
+    for symbol in expansion:
+        if isinstance(symbol, Terminal):
+            non_terminal = NonTerminal(f"{symbol.name}_{next(counter)}{TERM}")
+            todo[non_terminal].append(Expansion().append(symbol))
+            renamed.append(non_terminal)
+        else:
+            renamed.append(symbol)
+    todo[origin].append(Expansion(renamed))
+    todo[origin].remove(expansion)
+
+
+def split_expansion(todo: TodoList, origin: NonTerminal, expansion: Expansion):
+    new_symbol = NonTerminal(f"{origin.name}_{next(counter)}{SPLIT}")
+    todo[origin].append(Expansion([new_symbol, expansion[-1]]))
+    todo[new_symbol].append(Expansion(expansion[:-1]))
+
+
+def to_cnf_with_unit_productions(grammar: Grammar) -> Grammar:
+    finished = Grammar.Builder(start=grammar.orig_start)
+    remaining = grammar.get_mutable_copy()
+
+    while remaining:
+        origin, expansions = remaining.popitem()
+
         for expansion in expansions:
-            rename_in_expansion(work_list, origin, expansion, replacer, to_replace)
-    try:
-        if work_list[to_replace]:
-            work_list[replacer].extend(work_list[to_replace])
-        work_list[replacer].remove(exp)
-    except ValueError:
-        pass
+            if EMPTY in expansion:
+                raise ValueError(f"CYK does not support empty expansions")
 
-
-def to_cnf(grammar: Grammar) -> Grammar:
-    finished = defaultdict(list)
-    worklist = defaultdict(list)
-    for origin, expansions in grammar.items():
-        for expansion in expansions:
-            worklist[origin].append(expansion)
-
-    counter = count(0)
-    while worklist:
-        origin, expansions = worklist.popitem()
-        for expansion in expansions:
             match expansion:
-                case (Terminal(),) | (NonTerminal(), NonTerminal()):
-                    finished[origin].append(expansion)
-                case (Terminal(), NonTerminal()):
-                    rename_in_expansion(
-                        worklist,
-                        origin,
-                        expansion,
-                        NonTerminal(f"{expansion[0].name}{TERM}{next(counter)}"),
-                        expansion[0],
-                    )
-                case (NonTerminal(), Terminal()):
-                    rename_in_expansion(
-                        worklist,
-                        origin,
-                        expansion,
-                        NonTerminal(f"{expansion[1].name}{TERM}{next(counter)}"),
-                        expansion[1],
-                    )
-                case (NonTerminal(),):
-                    if origin == grammar.start:
-                        nt = NonTerminal(f"{TERM}EOF")
-                        finished[origin].append(expansion.append(nt))
-                        finished[nt].append(Expansion([EOF]))
-                    else:
-                        rename(finished, expansion, origin)
-                        rename(worklist, expansion, origin)
-                case (*prefix, last) if len(prefix) > 1:
-                    new_symbol = NonTerminal(f"{origin.name}{SPLIT}{next(counter)}")
-                    worklist[origin].append(Expansion([new_symbol, last]))
-                    worklist[new_symbol].append(Expansion(prefix))
+                case (Symbol(),) | (NonTerminal(), NonTerminal()):
+                    finished.add_expansion_no_check(origin, expansion)
+
+                case (Symbol(), Symbol()):
+                    rename_solitary_terminals(remaining, origin, expansion)
+
+                case _ if len(expansion) > 2:
+                    split_expansion(remaining, origin, expansion)
+
                 case _:
-                    raise ValueError(f"invalid expansion {expansion}")
-    cnf = Grammar.Builder(grammar.start.name)
-    for sym, expansions in finished.items():
-        cnf.add_definition(sym, set(expansions))
-    return cnf.build()
+                    raise RuntimeError(f"invalid expansion {expansion}")
 
-
-def is_cnf(grammar: Grammar) -> bool:
-    for expansions in grammar.values():
-        for expansion in expansions:
-            if len(expansion) > 2:
-                return False
-            if len(expansion) == 2 and not all(isinstance(sym, NonTerminal) for sym in expansion):
-                return False
-    return True
+    return finished.build()
 
 
 def yield_trees(
-    root: Symbol,
-    split_table: dict[Span, set[int]],
-    table: dict[Span, set[NonTerminal]],
+    cnf_grammar: Grammar,
+    pointers: PointerTable,
     words: list[Token],
-) -> ParseTree:
-    def yield_trees_impl(current: Symbol, span: Span) -> ParseTree:
-        start, end = span
-        if start == end:
-            yield ParseTree(current, [words[start]])
-        else:
-            for split in split_table[span]:
-                left_span, right_span = (start, split - 1), (split, end)
-                for left, right in product(table[left_span], table[right_span]):
-                    for children in product(
-                        yield_trees_impl(left, left_span),
-                        yield_trees_impl(right, right_span),
-                    ):
-                        yield ParseTree(current, list(children))
+) -> Iterator[ParseTree]:
 
-    yield from yield_trees_impl(root, (0, len(words) - 1))
+    assert EOF.matches(words[-1])
+
+    def yield_trees_impl(current: NonTerminal, span: Span) -> Iterator[ParseTree]:
+        for pointer in pointers[span][current]:
+            match pointer:
+                case (NonTerminal() as nt,):
+                    for child in yield_trees_impl(nt, span):
+                        yield ParseTree(current, [child])
+                case (pos,) if isinstance(pos, int):  # int
+                    yield ParseTree(current, [words[pos]])
+                case (int(mid), NonTerminal() as left, NonTerminal() as right):
+                    start, end = span
+                    yield from (
+                        ParseTree(current, list(children))
+                        for children in product(
+                            yield_trees_impl(left, (start, mid - 1)),
+                            yield_trees_impl(right, (mid, end)),
+                        )
+                    )
+                case _:
+                    raise ValueError(f"invalid pointer {pointer}")
+
+    yield from yield_trees_impl(cnf_grammar.orig_start, (0, len(words) - 2))
 
 
-def cyk_parse(grammar: Grammar, words: list[Token]):
-    table = defaultdict(set[NonTerminal])
-    split_table = defaultdict(set[int])
+def cyk_parse(
+    grammar: Grammar, words: list[Token]
+) -> tuple[Grammar, CYKResultsTable, PointerTable]:
+
+    table: CYKResultsTable = defaultdict(set[NonTerminal])
+    pointers: PointerTable = defaultdict(lambda: defaultdict(set[Pointer]))
+    cnf_grammar: Grammar = to_cnf_with_unit_productions(grammar)
 
     reversed_grammar = defaultdict(set)
-    for origin, expansions in grammar.items():
+    for root, expansions in cnf_grammar.items():
         for expansion in expansions:
-            reversed_grammar[expansion].add(origin)
+            reversed_grammar[expansion].add(root)
 
-    for start, word in enumerate(words):
-        for origin, expansions in grammar.items():
+    def add_unaries(span: Span):
+        seen = set()
+        heads_todo = table[span].copy()
+        while heads_todo:
+            head = heads_todo.pop()
+            if head in seen:
+                continue
+            seen.add(head)
+            for root in reversed_grammar[(head,)]:
+                table[span] |= {root}
+                pointers[span][root] |= {(head,)}
+                heads_todo |= {root}
+
+    for col, word in enumerate(words):
+        for root, expansions in cnf_grammar.items():
             for expansion in expansions:
-                match expansion:
-                    case (Terminal() as terminal,) if terminal.matches(word):
-                        table[(start, start)].add(origin)
+                if (
+                    len(expansion) == 1
+                    and isinstance(expansion[0], Terminal)
+                    and expansion[0].matches(word)
+                ):
+                    table[(col, col)] |= {root}
+                    pointers[(col, col)][root] |= {(col,)}
+        add_unaries((col, col))
 
     for length in range(2, len(words) + 1):
-        for start in range(len(words) - length + 1):
-            for split in range(start + 1, start + length):
-                left_span = (start, split - 1)
-                right_span = (split, start + length - 1)
-                for rule in product(table[left_span], table[right_span]):
-                    table[(start, start + length - 1)] |= set(reversed_grammar[rule])
-                    split_table[(start, start + length - 1)].add(split)
+        for col in range(len(words) - length + 1):
+            for mid in range(col + 1, col + length):
+                for children in product(
+                    table[(col, mid - 1)], table[(mid, col + length - 1)]
+                ):
+                    span = (col, col + length - 1)
+                    table[span] |= reversed_grammar[children]
+                    for root in reversed_grammar[children]:
+                        pointers[span][root] |= {(mid, *children)}
+            add_unaries((col, col + length - 1))
 
-    return table, split_table
+    return cnf_grammar, table, pointers
 
 
 def revert_cnf(parse_tree: ParseTree | Token) -> ParseTree | Token:
     if isinstance(parse_tree, Token):
         return parse_tree
     # * TERM: Eliminates rules with only one terminal symbol on their right-hand-side.
-    if re.match(f'{TERM}\\d+$', parse_tree.id.name) is not None:
-        return only(parse_tree.expansion)
+    if parse_tree.id.name.endswith(TERM):
+        return one(parse_tree.expansion)
     # * BIN: Eliminates rules with more than 2 symbols on their right-hand-side.
     children = []
     for child in map(revert_cnf, parse_tree.expansion):
-        if isinstance(child, ParseTree) and re.match(f'{SPLIT}\\d+$', child.id.name):
+        if isinstance(child, ParseTree) and child.id.name.endswith(SPLIT):
             children.extend(child.expansion)
         else:
             children.append(child)
@@ -172,20 +176,18 @@ if __name__ == "__main__":
 
     from utils.parse_grammar import parse_grammar
 
-    t, g = GRAMMAR3
-    g = parse_grammar(g, t)
+    g = parse_grammar(GRAMMAR3[1], GRAMMAR3[0])
     rprint(pretty_repr(g))
     print()
-    rprint(pretty_repr(to_cnf(g)))
-
     tks = Tokenizer("book the flight through Houston", {}).get_tokens_no_whitespace()
 
     rprint(pretty_repr(tks))
 
-    cg = to_cnf(g)
-    tab, sp = cyk_parse(cg, tks)
+    cnf_g, tab, sp = cyk_parse(g, tks)
     rprint(pretty_repr(tab))
     rprint(pretty_repr(sp))
-    # # rprint(pretty_repr(list(yield_trees(cg.start, split, tab, tks))))
-    # for i, t in enumerate(yield_trees(cg.start, sp, tab, tks)):
-    #     draw_tree(t, output_filename=f"tree_{i}.pdf")
+    # rprint(pretty_repr(list(yield_trees(cg.start, split, tab, tks))))
+    for i, t in enumerate(yield_trees(cnf_g, sp, tks)):
+        draw_tree(revert_cnf(t), f"tree_cyk_{i}.pdf")
+
+    # print(len(list(yield_trees(cnf_g, g.start, sp, tab, tks))))

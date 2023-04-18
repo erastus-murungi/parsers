@@ -110,9 +110,9 @@ class Tokenizer:
         )
         if ret is None:
             # no token found
-            word = re.match(r"\b\w+\b", self._remaining_code())
-            if word is not None:
-                word = word.group(0).strip()
+            word_match = re.match(r"\b\w+\b", self._remaining_code())
+            if word_match is not None:
+                word = word_match.group(0).strip()
                 lexeme, ret_type = word, "word"
             else:
                 lexeme, ret_type = self._current_char(), "char"

@@ -163,7 +163,7 @@ GRAMMAR_0N1N = (
 )
 
 GRAMMAR3 = (
-    {},
+    {"(": ")"},
     """
         <S> -> <NP> <VP>
         <S> -> <Aux> <NP> <VP>
