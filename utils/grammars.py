@@ -6,10 +6,10 @@ GRAMMAR1 = (
         "*": "*",
     },
     """
-        <E> -> <T> <E'>
-        <E'> -> '+' <T> <E'> | <>
-        <T> -> <F> <T'>
-        <T'> -> '*' <F> <T'> | <>
+        <E> -> <T> <E0>
+        <E0> -> ('+' <T> <E0>)?
+        <T> -> <F> <T0>
+        <T0> -> ('*' <F> <T0>)?
         <F> -> '(' <E> ')' | integer
     """,
 )
@@ -78,7 +78,7 @@ GRAMMAR_REGEX = (
     """
         <Regex> -> <StartOfStringAnchor> <Expression>
         <Expression> -> <Subexpression> 
-        <ExpressionAlternative> -> ( or_literal <Expression> ) | <>
+        <ExpressionAlternative> -> ( or_literal <Expression> )? | <>
 
         <Subexpression> -> <SubExpressionOne>
         <SubExpressionOne> -> <SubExpressionOne> <SubexpressionItem> | <SubexpressionItem>
@@ -150,7 +150,7 @@ GRAMMAR_DYCK = (
         ")": ")",
     },
     """
-        <S> -> '(' <S> ')' <S> | <>
+        <S> -> ('(' <S> ')' <S>)?
     """,
 )
 
@@ -236,8 +236,7 @@ GRAMMAR4 = (
     
         <Block> -> '{' <Declarations> <Statements> '}'
         
-        <Declarations> -> <Declarations> <Declaration>
-                      | <>
+        <Declarations> -> (<Declarations> <Declaration>)?
         
         <Declaration> -> <Type> <Identifiers> ';'
         
@@ -248,8 +247,7 @@ GRAMMAR4 = (
         <Identifiers> -> <Identifiers> ',' word
                       | word
             
-        <Statements> -> <Statements> <Statement>
-                     | <>
+        <Statements> -> (<Statements> <Statement>)?
         
         <Statement> -> <Expression> ';'
                     | <Block>
