@@ -59,6 +59,6 @@ def entry(table: dict[str, str], grammar_str: str):
 
 
 if __name__ == "__main__":
-    from utils.grammars import DECAF_GRAMMAR
+    from utils.grammars import GRAMMAR1
 
-    entry(DECAF_GRAMMAR[0], DECAF_GRAMMAR[1])
+    entry(*GRAMMAR1)

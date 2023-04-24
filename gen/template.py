@@ -4,9 +4,9 @@
 from more_itertools import one
 from rich.traceback import install
 
-from grammar import EOF
+from grammar import EOF, Terminal
 from parsers.parser import ParseTree
-from utils import Token, Tokenizer
+from tokenizer import Tokenizer
 
 Shift = Goto = Accept = int
 Reduce = tuple[int, int]
@@ -40,7 +40,7 @@ expected_tokens: dict[int, list[str]] = "%expected_tokens%"
 def parse(input_str: str) -> ParseTree:
     tokens = Tokenizer(input_str, tokenizer_table).get_tokens_no_whitespace()
     stack, token_index = [states[0]], 0
-    tree: list[ParseTree | Token] = []
+    tree: list[ParseTree | Terminal] = []
 
     while stack:
         state = stack[-1]

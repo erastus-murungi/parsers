@@ -2,9 +2,9 @@ import subprocess
 import sys
 from typing import Iterator
 
+from grammar import Terminal
 from lr import Accept, Goto, LRTable, Reduce, Shift
 from parsers.parser import AST, ParseTree
-from utils import Token
 
 DIR = "./graphs/"
 DOT_FILENAME = "tree.dot"
@@ -13,25 +13,25 @@ GRAPH_TYPE = "pdf"
 
 def yield_edges(
     root,
-) -> Iterator[tuple[AST, Token]] | Iterator[tuple[ParseTree, Token]]:
+) -> Iterator[tuple[AST, Terminal]] | Iterator[tuple[ParseTree, Terminal]]:
     if isinstance(root, ParseTree):
         yield from yield_edges_parse_tree(root)
     else:
         yield from yield_edges_ast(root)
 
 
-def yield_edges_ast(root) -> Iterator[tuple[AST, Token]]:
+def yield_edges_ast(root) -> Iterator[tuple[AST, Terminal]]:
     for child in root["expansion"]:
-        if isinstance(child, Token):
+        if isinstance(child, Terminal):
             yield root, child
         else:
             yield root, child
             yield from yield_edges_ast(child)
 
 
-def yield_edges_parse_tree(root) -> Iterator[tuple[ParseTree, Token]]:
+def yield_edges_parse_tree(root) -> Iterator[tuple[ParseTree, Terminal]]:
     for child in root.expansion:
-        if isinstance(child, Token):
+        if isinstance(child, Terminal):
             yield root, child
         else:
             yield root, child
@@ -99,7 +99,7 @@ def create_graph_pdf(
     # subprocess.run(["rm", output_filepath])
 
 
-def draw_tree(root: ParseTree | AST | Token, output_filename: str = "tree.pdf"):
+def draw_tree(root: ParseTree | AST | Terminal, output_filename: str = "tree.pdf"):
     graph = [graph_prologue()]
     edges = []
     nodes = []
@@ -111,7 +111,7 @@ def draw_tree(root: ParseTree | AST | Token, output_filename: str = "tree.pdf"):
             return node["id"]
 
     for src, dst in yield_edges(root):
-        if isinstance(src, Token):
+        if isinstance(src, Terminal):
             nodes.append(
                 f"   {id(src)} [shape=doublecircle, style=filled, fillcolor=white, "
                 f'fontcolor=black, label="{escape(src.lexeme)}"];'
@@ -121,7 +121,7 @@ def draw_tree(root: ParseTree | AST | Token, output_filename: str = "tree.pdf"):
                 f"   {id(src)} [shape=record, style=filled, fillcolor=black, "
                 f'fontcolor=white, label="{escape(get_label_non_token(src))}"];'
             )
-        if isinstance(dst, Token):
+        if isinstance(dst, Terminal):
             nodes.append(
                 f"   {id(dst)} [shape=doublecircle, style=filled, fillcolor=white, "
                 f'fontcolor=black, label="{escape(dst.lexeme)}"];'

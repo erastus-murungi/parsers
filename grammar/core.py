@@ -1,8 +1,6 @@
 from abc import ABC
 from collections import defaultdict
-from typing import Callable, Iterable, Iterator, Optional, Sequence, TypeGuard, cast
-
-from utils.tokenizer import Token
+from typing import Iterable, Iterator, NamedTuple, Optional, Sequence, TypeGuard, cast
 
 
 class Symbol(ABC):
@@ -24,13 +22,40 @@ class Symbol(ABC):
         return self.name == other.name
 
 
-class Terminal(Symbol):
-    def __init__(self, label: str, token_matcher: Callable[[Token], bool]):
-        super().__init__(label)
-        self._token_matcher = token_matcher
+class Loc(NamedTuple):
+    filename: str
+    line: int
+    col: int
+    offset: int
 
-    def matches(self, token: Token) -> bool:
-        return self._token_matcher(token)
+    def __str__(self):
+        return f"<{self.filename}:{self.line}:{self.col}>"
+
+
+class Terminal(Symbol):
+    """
+    A token has three components:
+    1) Its type
+    2) A lexeme -- the substring of the source code it represents
+    3) The location in code of the lexeme
+    """
+
+    def __init__(self, token_type: str, lexeme: str, loc: Loc):
+        super().__init__(token_type)
+        self.token_type = token_type
+        self.lexeme = lexeme
+        self.loc = loc
+
+    @staticmethod
+    def from_token_type(token_type: str, loc: Loc):
+        """A convenient constructor to avoid the frequent pattern:
+        Token(TokenType.X, TokenType.X.value, loc)"""
+        return Terminal(token_type, token_type, loc)
+
+    def matches(self, token: "Terminal") -> bool:
+        if isinstance(token, Terminal):
+            return self.token_type == token.token_type
+        return False
 
     def __repr__(self):
         return f"[bold blue]{self.name}[/bold blue]"
@@ -40,9 +65,17 @@ class Marker(Terminal):
     def __repr__(self):
         return f"[bold cyan]{self.name}[/bold cyan]"
 
+    def is_eof(self):
+        return self.name == "eof"
 
-EOF = Marker("eof", lambda token: token.token_type == "eof")
-EMPTY = Marker("ε", lambda token: True)
+
+class Empty(Marker):
+    def matches(self, token: "Terminal") -> bool:
+        return True
+
+
+EMPTY = Empty("ε", "ε", Loc("(ε)", 0, 0, 0))
+EOF = Marker("eof", "$", Loc("(eof)", 0, 0, 0))
 
 
 class NonTerminal(Symbol):
@@ -67,7 +100,7 @@ class Expansion(tuple[Symbol]):
     def __iter__(self):
         yield from filter(lambda token: token is not EMPTY, super().__iter__())
 
-    def matches(self, tokens: Sequence[Token]) -> bool:
+    def matches(self, tokens: Sequence[Terminal]) -> bool:
         if len(self) == len(tokens):
             if all_terminals(self):
                 return all(
@@ -90,7 +123,7 @@ class Expansion(tuple[Symbol]):
 
     def should_prune(
         self,
-        tokens: Sequence[Token],
+        tokens: Sequence[Terminal],
         seen: set["Expansion"],
         nullable_set: set[Symbol],
     ) -> bool:

@@ -19,24 +19,24 @@ from lr import (
     Shift,
     SLRParsingTable,
 )
-from utils import Token, Tokenizer
+from tokenizer.tokenizer import Tokenizer
 
 install(show_locals=False)
 
 
 class AST(TypedDict):
     id: Required[str]
-    expansion: Required[list[Union["AST", Token]]]
+    expansion: Required[list[Union["AST", Terminal]]]
 
 
 class ParseTree(NamedTuple):
     id: Symbol
-    expansion: list[Union["ParseTree", Token]]
+    expansion: list[Union["ParseTree", Terminal]]
 
     def collapse(self) -> AST:
-        expansion: list[AST | Token] = []
+        expansion: list[AST | Terminal] = []
         for child in self.expansion:
-            if isinstance(child, Token):
+            if isinstance(child, Terminal):
                 expansion.append(child)
             else:
                 child_collapse = child.collapse()
@@ -115,11 +115,11 @@ class EarleyParser(Parser):
                 parse_forest[start].append(EarleyItem(name, dot, end_index, rule))
 
         def yield_all_paths(
-            path: list[EarleyItem | Token],
+            path: list[EarleyItem | Terminal],
             start_index: int,
             left,
             path_end_index: int,
-        ) -> Iterator[list[EarleyItem | Token]]:
+        ) -> Iterator[list[EarleyItem | Terminal]]:
             # if we are at a leaf
             if not left:
                 if path_end_index == start_index:
@@ -153,9 +153,9 @@ class EarleyParser(Parser):
                 [], path_start_index, path_root.rule, path_end_index
             ):
                 item_start_index = path_start_index
-                children_possibilities: list[Sequence[Token | ParseTree]] = []
+                children_possibilities: list[Sequence[Terminal | ParseTree]] = []
                 for item in path:
-                    if isinstance(item, Token):
+                    if isinstance(item, Terminal):
                         children_possibilities.append([item])
                         item_start_index += 1
                     else:
@@ -190,7 +190,7 @@ class LR0Parser(Parser):
         parsing_table = self.get_parsing_table()
         # root = ParseTree(self.grammar.start_symbol, [])
         stack, token_index = [parsing_table.states[0]], 0
-        tree: list[ParseTree | Token] = []
+        tree: list[ParseTree | Terminal] = []
 
         while stack:
             current_state = stack[-1]

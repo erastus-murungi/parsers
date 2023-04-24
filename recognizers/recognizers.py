@@ -15,7 +15,7 @@ from lr import (
     Shift,
     SLRParsingTable,
 )
-from utils.tokenizer import Token, Tokenizer
+from tokenizer import Tokenizer
 
 MAX_ITERATIONS = 1000_000
 
@@ -28,7 +28,9 @@ class Recognizer(ABC):
     def __init__(self, grammar: Grammar, source: str, table):
         self.grammar: Grammar = grammar
         self.source: str = source
-        self.tokens: list[Token] = Tokenizer(source, table).get_tokens_no_whitespace()
+        self.tokens: list[Terminal] = Tokenizer(
+            source, table
+        ).get_tokens_no_whitespace()
 
     @abstractmethod
     def recognizes(self) -> bool:
@@ -111,14 +113,14 @@ class LL1Recognizer(Recognizer):
                     raise SyntaxError(f"Expected {symbol.name} but got {token}")
             else:
                 non_terminal = cast(NonTerminal, symbol)
-                if (rule := parsing_table.get((non_terminal, token.id))) is not None:
+                if (rule := parsing_table.get((non_terminal, token.name))) is not None:
                     stack.extend(reversed(rule))
                 else:
                     raise SyntaxError(
                         f"At position {token.loc}, "
                         f"was parsing {symbol!s} "
                         f'expecting one of ({", ".join(terminal.name for terminal in self.grammar.gen_first()[symbol])}), '
-                        f"but found {token.id!s}"
+                        f"but found {token.name!s}"
                     )
         assert token_index >= len(self.tokens)
         return True
@@ -140,12 +142,12 @@ class LR0Recognizer(Recognizer):
         while stack:
             current_state = stack[-1]
             current_token = self.tokens[token_index]
-            match parsing_table.get((current_state, current_token.id)):
+            match parsing_table.get((current_state, current_token.name)):
                 # Advance input one token; push state n on stack.
                 # TODO: assert that current_state corresponds to the current_token
                 case Shift(current_state):
                     stack.append(current_state)
-                    token_index += current_token.id != EOF.name
+                    token_index += current_token.name != EOF.name
                 case Reduce(lhs, len_rhs):
                     stack = stack[: -len_rhs or None]
                     match parsing_table[(stack[-1], lhs.name)]:
@@ -153,13 +155,13 @@ class LR0Recognizer(Recognizer):
                             stack.append(current_state)
                         case _:
                             raise SyntaxError(
-                                f"Unexpected {current_token.id} at {current_token.loc}"
+                                f"Unexpected {current_token.name} at {current_token.loc}"
                             )
                 case Accept():
                     return True
                 case _:
                     raise SyntaxError(
-                        f"Unexpected {current_token.id} at {current_token.loc}"
+                        f"Unexpected {current_token.name} at {current_token.loc}"
                     )
         raise SyntaxError(
             f"Syntax error at {self.tokens[token_index] if token_index < len(self.tokens) else EOF}"
@@ -212,10 +214,7 @@ def recognize(
 
 
 if __name__ == "__main__":
-    from rich import print as print_rich
-    from rich.pretty import pretty_repr
-
-    from utils.parse_grammar import parse_grammar
+    pass
 
     # table = {
     #     "x": "x",

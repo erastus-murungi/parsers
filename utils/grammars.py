@@ -54,7 +54,6 @@ GRAMMAR_LR0 = (
         ";": ";",
         "(": "(",
         ")": ")",
-        "or_literal": "|",
     },
     """
             <E> -> <T>';' | <T> '+' <E>
@@ -74,73 +73,47 @@ GRAMMAR_REGEX = (
         "(": "(",
         ")": ")",
         "\\w": "\\w",
+        "{": "{",
+        "}": "}",
+        ",": ",",
     },
     """
-        <Regex> -> <StartOfStringAnchor> <Expression>
-        <Expression> -> <Subexpression> 
-        <ExpressionAlternative> -> ( or_literal <Expression> )? | <>
-
-        <Subexpression> -> <SubExpressionOne>
-        <SubExpressionOne> -> <SubExpressionOne> <SubexpressionItem> | <SubexpressionItem>
-        <SubexpressionItem> -> <Match> | <Group> | <Anchor> | <Backreference>
-            
-        <Group> -> ( <OptionalGroupNonCapturingModifier> <Expression> ) <OptionalQuantifier>
-        <GroupNonCapturingModifier> -> ?:
-        <OptionalQuantifier> -> <Quantifier> | <>
-        <OptionalGroupNonCapturingModifier> -> <GroupNonCapturingModifier> | <>
-
-        <Match> -> <MatchItem> <OptionalQuantifier>
-
-        <MatchItem> -> <MatchAnyCharacter> | <MatchCharacterClass> | <MatchCharacter>
-        <MatchAnyCharacter> -> .
-
-        <MatchCharacterClass> -> <CharacterGroup> | <CharacterClass>
-
-        <MatchCharacter> -> char
-
-        <CharacterGroup> -> [ <OptionalCharacterGroupNegativeModifier> <OneOrMoreCharacterGroupItem> ]
-        <OptionalCharacterGroupNegativeModifier> -> <CharacterGroupNegativeModifier>
-        <OneOrMoreCharacterGroupItem> -> <CharacterGroupItem> <OneOrMoreCharacterGroupItem> | <CharacterGroupItem>
-
-        <CharacterGroupNegativeModifier> -> ^ | <>
-        <CharacterGroupItem> -> <CharacterClass> | <CharacterRange> | char
-
-        <CharacterClass> -> <CharacterClassAnyWord> | <CharacterClassAnyWordInverted> | <CharacterClassAnyDecimalDigit> | <CharacterClassAnyDecimalDigitInverted>
-
-        <CharacterClassAnyWord> -> \\w
-        <CharacterClassAnyWordInverted> -> \\W
-        <CharacterClassAnyDecimalDigit> -> \\d
-        <CharacterClassAnyDecimalDigitInverted> -> \\D
-
-        <CharacterRange> -> char - char
-        <Quantifier> -> <QuantifierType> <OptionalLazyModifier>
-        <QuantifierType> -> <ZeroOrMoreQuantifier> | <OneOrMoreQuantifier> | <ZeroOrOneQuantifier> | <RangeQuantifier>
-        <OptionalLazyModifier> -> <LazyModifier> | <>
-
-        <LazyModifier> -> ?
-
-        <ZeroOrMoreQuantifier> -> *
-        <OneOrMoreQuantifier> -> +
-        <ZeroOrOneQuantifier> -> ?
-
-        <RangeQuantifier> -> { <RangeQuantifierLowerBound> <OptionalUpperBound> }
-        <OptionalUpperBound> -> , <RangeQuantifierUpperBound> | <>
-        <RangeQuantifierLowerBound> -> integer
-        <RangeQuantifierUpperBound> -> integer
-
-        <Backreference> -> \\ integer
-
-        <StartOfStringAnchor> -> ^ | <>
-
-        <Anchor> -> <AnchorWordBoundary> | <AnchorNonWordBoundary> | <AnchorStartOfStringOnly> | <AnchorEndOfStringOnlyNotNewline> | <AnchorEndOfStringOnly> | <AnchorPreviousMatchEnd> | <AnchorEndOfString>
-
-        <AnchorWordBoundary> -> \b
-        <AnchorNonWordBoundary> -> \\B
-        <AnchorStartOfStringOnly> -> \\A
-        <AnchorEndOfStringOnlyNotNewline> -> \\z
-        <AnchorEndOfStringOnly> -> \\Z
-        <AnchorPreviousMatchEnd> -> \\G
-        <AnchorEndOfString> -> $
+        <regex> -> '^'? <expr>
+        <expr> -> <sub_expr>+ ( '|' <expr> )?
+        <sub_expr> -> <match> 
+                | <group> 
+                | <anchor> 
+                | <backref>
+        <group> -> '(' '?:'? <expr> ')' <quantifier>?
+        <match> -> <match_item> <quantifier>?
+        <match_item> -> '.' 
+                | <match_char_class> 
+                | <literal>
+        <match_char_class> -> <char_group> 
+                            | <char_class>
+        <char_group> -> '[' '^'? <char_group_item>+ ']'
+        <char_group_item> -> <char_class> 
+                        | <char_range> 
+                        | <literal>
+        <char_class> -> '\\w' 
+                    | '\\W' 
+                    | '\\d' 
+                    | '\\D' 
+                    | '\\s' 
+                    | '\\S'
+        <char_range> -> char '-' char
+        <quantifier> -> <quantifier_type> '?'?
+        <quantifier_type> -> '*' | '+' | '?' | <range>
+        <range> -> '{' integer (',' integer)? '}'
+        <backref> -> '\\'integer
+        <literal> -> char | word
+        <anchor> -> '\\b' 
+                    | '\\B' 
+                    | '\\A' 
+                    | '\\z' 
+                    | '\\Z' 
+                    | '\\G' 
+                    | '$'
     """,
 )
 
@@ -197,117 +170,6 @@ GRAMMAR3 = (
 )
 
 
-GRAMMAR4 = (
-    {
-        "int": "int",
-        "char": "char",
-        "float": "float",
-        "if": "if",
-        "else": "else",
-        "while": "while",
-        "return": "return",
-        "(": ")",
-        ")": ")",
-        "{": "{",
-        "}": "}",
-        "[": "[",
-        "]": "]",
-        ";": ";",
-        "=": "=",
-        ",": ",",
-        "+": "+",
-        "-": "-",
-        "*": "*",
-        "/": "/",
-        "<": "<",
-        ">": ">",
-        "<=": "<=",
-        ">=": ">=",
-        "==": "==",
-        "!=": "!=",
-        "&&": "&&",
-        "!": "!",
-        "++": "++",
-        "--": "--",
-        "double_or": "||",
-    },
-    """
-        <Program> ->  <Block>
-    
-        <Block> -> '{' <Declarations> <Statements> '}'
-        
-        <Declarations> -> (<Declarations> <Declaration>)?
-        
-        <Declaration> -> <Type> <Identifiers> ';'
-        
-        <Type> -> 'int'
-               | 'float'
-               | 'char'
-        
-        <Identifiers> -> <Identifiers> ',' word
-                      | word
-            
-        <Statements> -> (<Statements> <Statement>)?
-        
-        <Statement> -> <Expression> ';'
-                    | <Block>
-                    | 'if' '(' <Expression> ')' <Statement> ('else' <Statement>)?
-                    | 'while' '(' <Expression> ')' <Statement>
-                    | 'return' <Expression> ';'
-                
-    
-        <Expression> -> <Expression> '=' <ConditionalExpression>
-                     | <ConditionalExpression>
-    
-        <ConditionalExpression> -> <LogicalOrExpression> ('?' <Expression> ':' <ConditionalExpression>)?
-    
-        <LogicalOrExpression> -> <LogicalAndExpression> (double_or <LogicalAndExpression> )*
-    
-        <LogicalAndExpression> -> <EqualityExpression> ('&&' <EqualityExpression>)*
-    
-        <EqualityExpression> -> <RelationalExpression> (<EqualityOperator> <RelationalExpression>)*
-        
-        <EqualityOperator> -> '==' | '!='
-        
-        <RelationalExpression> -> <AdditiveExpression> (<RelationalOp> <AdditiveExpression>)*
-    
-        <RelationalOp> -> '<' | '>' | '<=' | '>='
-        
-        <AdditiveExpression> -> <MultiplicativeExpression> (<PlusOrMinus> <MultiplicativeExpression>)*
-    
-        <PlusOrMinus> -> '+' | '-'
-        
-        <MultiplicativeExpression> -> <CastExpression> (<MulOps> <CastExpression>)*
-        
-        <MulOps> -> '*' | '/' | '%'
-    
-    
-        <CastExpression> -> '(' <Type> ')' <CastExpression>
-                         | <UnaryExpression>
-    
-        <UnaryOps> -> '+' | '-' | '!' | '~'
-    
-        <UnaryExpression> -> <UnaryOps> <UnaryExpression>
-                          | <PostfixExpression>
-        
-        <PostfixExpression> -> <PrimaryExpression>
-                            | <PostfixExpression> '[' <Expression> ']'
-                            | <PostfixExpression> '(' (<Expression> (',' <Expression>)*)? ')'
-                            | <PostfixExpression> '.' word
-                            | <PostfixExpression> '->' word
-                            | <PostfixExpression> '++'
-                            | <PostfixExpression> '--'
-        
-        <PrimaryExpression> -> word
-                             | integer
-                             | float
-                             | char
-                             | word
-                             | '(' <Expression> ')'
-    """,
-)
-
-
 DECAF_GRAMMAR = (
     {
         "int": "int",
@@ -348,7 +210,6 @@ DECAF_GRAMMAR = (
         "+=": "+=",
         "-=": "-=",
         "<<=": "<<=",
-        "double_or": "||",
     },
     """
         <program> ->  <import_decl>* <field_decl>* <method_decl>*
@@ -386,7 +247,7 @@ DECAF_GRAMMAR = (
                 | '(' <expr> ')'
                 | <expr> '?' <expr> ':' <expr>
                 | 'len' '(' word ')'
-        <bin_op> -> '+' | '-' | '*' | '/' | '%' | '&&' | double_or | '==' | '!=' | '<' | '>' | '<=' | '>='
+        <bin_op> -> '+' | '-' | '*' | '/' | '%' | '&&' | '||' | '==' | '!=' | '<' | '>' | '<=' | '>='
         <literal> -> integer | float | char | 'true' | 'false'
     """,
 )

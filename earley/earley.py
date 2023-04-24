@@ -2,7 +2,6 @@ from typing import NamedTuple, Optional, cast
 
 from grammar import Expansion, Grammar, NonTerminal, Symbol, Terminal
 from lr import LRState
-from utils import Token
 
 
 class EarleyItem(NamedTuple):
@@ -30,7 +29,7 @@ class EarleyItem(NamedTuple):
 
 class EarleyError(SyntaxError):
     def __init__(
-        self, expected_terminals: list[Terminal], failure_token: Token, source: str
+        self, expected_terminals: list[Terminal], failure_token: Terminal, source: str
     ):
         self.expected_terminals: list[Terminal] = expected_terminals
         ident = "\t\t"
@@ -45,7 +44,7 @@ class EarleyError(SyntaxError):
 
 
 def gen_earley_sets(
-    grammar: Grammar, tokens: list[Token], source: str, debug: int = True
+    grammar: Grammar, tokens: list[Terminal], source: str, debug: int = True
 ) -> list[LRState[EarleyItem]]:
     # initialize the recognizer; we have exactly one set for each token
     assert len(tokens) > 0, "Cannot recognize an empty string"

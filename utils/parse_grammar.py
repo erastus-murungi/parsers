@@ -5,35 +5,30 @@ from typing import Iterator
 
 from more_itertools import sliced
 
-from grammar import EMPTY, Grammar, NonTerminal, Symbol, Terminal
+from grammar import EMPTY, Grammar, Loc, NonTerminal, Symbol, Terminal
 
 temps_counter = count(0)
+dummy_loc = Loc("", -1, -1, -1)
 
 
 def iter_symbol_tokens(input_str: str) -> Iterator[str]:
     input_str = input_str.strip()
     while input_str:
-        if m := re.match(r"<\w+>[?*+]?", input_str):  # NonTerminal
+        if m := re.match(r"^\|", input_str):
+            yield m.group(0)
+        elif m := re.match(r"<\w+>[?*+]?", input_str):  # NonTerminal
             yield m.group(0)
         elif m := re.match(r"((?<!')\(.*\)(?!')[?*+]?)", input_str):  # Grouped items
             yield m.group(0)
-        elif m := re.match(r"('\w+?')", input_str):  # 'any word literal'
+        elif m := re.match(r"'\w+?'[?*+]?", input_str):  # 'any word literal'
             yield m.group(0)
         elif m := re.match(r"\w+", input_str):  # keyword
             yield m.group(0)
-        elif m := re.match(r"'.*?'", input_str):  # any literal
+        elif m := re.match(r"'.*?'[?*+]?", input_str):  # any literal
             yield m.group(0)
         else:
             raise ValueError(f"Invalid token: {input_str}")
         input_str = input_str[m.end() :].strip()
-
-
-def bind_lexeme(lexeme: str):
-    return lambda token: token.lexeme == lexeme
-
-
-def bind_token_type(token_type: str):
-    return lambda token: token.token_type == token_type
 
 
 def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> Grammar:
@@ -43,15 +38,16 @@ def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> Grammar:
         re.split(r"<(\w+)>\s*->", grammar_str.strip())[1:], n=2, strict=True
     ):
         origin = NonTerminal(origin_str)
-        queue = deque(
-            [(origin, expansion_str) for expansion_str in definition_str.split("|")]
-        )
+        queue = deque([(origin, definition_str)])
         while queue:
             origin, expansion = queue.popleft()
             if isinstance(expansion, str):
                 rule: list[Symbol] = []
                 for lexeme in iter_symbol_tokens(expansion):
-                    if (
+                    if lexeme == "|":
+                        queue.append((origin, rule if rule else (EMPTY,)))
+                        rule = []
+                    elif (
                         lexeme.endswith("?")
                         | lexeme.endswith("*")
                         | lexeme.endswith("+")
@@ -59,6 +55,9 @@ def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> Grammar:
                         if lexeme.startswith("("):
                             R = NonTerminal(f"R_{next(temps_counter)}")
                             queue.append((R, lexeme[1:-2]))
+                        elif lexeme.startswith("'"):
+                            R = NonTerminal(f"R_{next(temps_counter)}")
+                            queue.append((R, lexeme[:-1]))
                         else:
                             assert lexeme.startswith("<")
                             R = NonTerminal(lexeme[1:-2])
@@ -86,7 +85,7 @@ def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> Grammar:
                         rule.append(EMPTY)
                     elif lexeme.startswith(r"\\"):
                         # this is a terminal
-                        rule.append(Terminal(lexeme[1:], bind_lexeme(lexeme[1:])))
+                        rule.append(Terminal(lexeme[1:], lexeme[1:], dummy_loc))
                     elif lexeme.startswith("<"):
                         # this is a non-terminal
                         rule.append(NonTerminal(lexeme[1:-1]))
@@ -99,13 +98,14 @@ def parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> Grammar:
                         "word",
                     ):
                         # keywords
-                        rule.append(Terminal(lexeme, bind_token_type(lexeme)))
+                        rule.append(Terminal(lexeme, lexeme, dummy_loc))
                     elif lexeme in defined_tokens or re.match(r"'.*'", lexeme):
                         lexeme = lexeme[1:-1]
                         rule.append(
                             Terminal(
                                 defined_tokens.get(lexeme, lexeme),
-                                bind_lexeme(lexeme),
+                                lexeme,
+                                dummy_loc,
                             )
                         )
                     else:

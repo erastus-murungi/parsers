@@ -6,7 +6,7 @@ from more_itertools import one
 
 from grammar import EMPTY, EOF, Expansion, Grammar, NonTerminal, Symbol, Terminal
 from parsers.parser import ParseTree
-from utils import Token, Tokenizer
+from tokenizer import Tokenizer
 from utils.dot import draw_tree
 from utils.grammars import GRAMMAR3
 
@@ -72,7 +72,7 @@ def to_cnf_with_unit_productions(grammar: Grammar) -> Grammar:
 def yield_trees(
     cnf_grammar: Grammar,
     pointers: PointerTable,
-    words: list[Token],
+    words: list[Terminal],
 ) -> Iterator[ParseTree]:
     assert EOF.matches(words[-1])
 
@@ -100,7 +100,7 @@ def yield_trees(
 
 
 def cyk_parse(
-    grammar: Grammar, words: list[Token]
+    grammar: Grammar, words: list[Terminal]
 ) -> tuple[Grammar, CYKResultsTable, PointerTable]:
     table: CYKResultsTable = defaultdict(set[NonTerminal])
     pointers: PointerTable = defaultdict(lambda: defaultdict(set[Pointer]))
@@ -151,8 +151,8 @@ def cyk_parse(
     return cnf_grammar, table, pointers
 
 
-def revert_cnf(parse_tree: ParseTree | Token) -> ParseTree | Token:
-    if isinstance(parse_tree, Token):
+def revert_cnf(parse_tree: ParseTree | Terminal) -> ParseTree | Terminal:
+    if isinstance(parse_tree, Terminal):
         return parse_tree
     # * TERM: Eliminates rules with only one terminal symbol on their right-hand-side.
     if parse_tree.id.name.endswith(TERM):
