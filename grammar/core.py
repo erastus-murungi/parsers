@@ -32,6 +32,9 @@ class Loc(NamedTuple):
         return f"<{self.filename}:{self.line}:{self.col}>"
 
 
+DUMMY_LOC = Loc("", -1, -1, -1)
+
+
 class Terminal(Symbol):
     """
     A token has three components:
@@ -113,7 +116,7 @@ class Expansion(tuple[Symbol]):
             return Expansion(self[:index] + self[index + 1 :])
         return Expansion(self[:index] + replacer + self[index + 1 :])
 
-    def enumerate_variables(self) -> Iterator[tuple[int, NonTerminal]]:
+    def enumerate_non_terminals(self) -> Iterator[tuple[int, NonTerminal]]:
         for index, symbol in enumerate(self):
             if isinstance(symbol, NonTerminal):
                 yield index, symbol

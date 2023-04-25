@@ -50,7 +50,7 @@ class BFSTopDownLeftmostRecognizer(Recognizer):
 
             seen.add(rule)
 
-            for index, symbol in rule.enumerate_variables():
+            for index, symbol in rule.enumerate_non_terminals():
                 for replacement in self.grammar[symbol]:
                     if (
                         next_form := rule.perform_derivation(index, replacement)
@@ -80,7 +80,7 @@ class DFSTopDownLeftmostRecognizer(Recognizer):
             seen.add(rule)
 
             next_in_stack = []
-            for index, symbol in rule.enumerate_variables():
+            for index, symbol in rule.enumerate_non_terminals():
                 for replacement in self.grammar[symbol]:
                     if (
                         next_form := rule.perform_derivation(index, replacement)

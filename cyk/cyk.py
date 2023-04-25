@@ -77,17 +77,18 @@ def yield_trees(
     assert EOF.matches(words[-1])
 
     def yield_trees_impl(current: NonTerminal, span: Span) -> Iterator[ParseTree]:
+        current_str = str(current)
         for pointer in pointers[span][current]:
             match pointer:
                 case NonTerminal():
                     for child in yield_trees_impl(pointer, span):
-                        yield ParseTree(current, [child])
+                        yield ParseTree(current_str, [child])
                 case int(pos):
-                    yield ParseTree(current, [words[pos]])
+                    yield ParseTree(current_str, [words[pos]])
                 case (int(mid), NonTerminal() as left, NonTerminal() as right):
                     start, end = span
                     yield from (
-                        ParseTree(current, list(children))
+                        ParseTree(current_str, list(children))
                         for children in product(
                             yield_trees_impl(left, (start, mid - 1)),
                             yield_trees_impl(right, (mid, end)),
@@ -155,12 +156,12 @@ def revert_cnf(parse_tree: ParseTree | Terminal) -> ParseTree | Terminal:
     if isinstance(parse_tree, Terminal):
         return parse_tree
     # * TERM: Eliminates rules with only one terminal symbol on their right-hand-side.
-    if parse_tree.id.name.endswith(TERM):
+    if parse_tree.id.endswith(TERM):
         return one(parse_tree.expansion)
     # * BIN: Eliminates rules with more than 2 symbols on their right-hand-side.
     children = []
     for child in map(revert_cnf, parse_tree.expansion):
-        if isinstance(child, ParseTree) and child.id.name.endswith(SPLIT):
+        if isinstance(child, ParseTree) and child.id.endswith(SPLIT):
             children.extend(child.expansion)
         else:
             children.append(child)
@@ -172,9 +173,7 @@ if __name__ == "__main__":
     from rich import print as rprint
     from rich.pretty import pretty_repr
 
-    from utils.parse_grammar import parse_grammar
-
-    g = parse_grammar(GRAMMAR3[1], GRAMMAR3[0])
+    g = Grammar.from_str(*GRAMMAR3)
     rprint(pretty_repr(g))
     print()
     tks = Tokenizer("book the flight through Houston", {}).get_tokens_no_whitespace()

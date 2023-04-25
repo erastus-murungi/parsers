@@ -4,15 +4,14 @@ from hmac import HMAC
 
 from rich.pretty import pretty_repr
 
-from grammar import Terminal
+from grammar import Grammar, Terminal
 from lr import Accept, Goto, LALR1ParsingTable, Reduce, Shift
-from utils.parse_grammar import parse_grammar
 
 GENERATED_FILE_NAME = "lalr1_generated.py"
 
 
-def entry(table: dict[str, str], grammar_str: str):
-    grammar = parse_grammar(grammar_str, table)
+def entry(grammar_str: str, table: dict[str, str]):
+    grammar = Grammar.from_str(grammar_str, table)
     parsing_table = LALR1ParsingTable(grammar)
     states = [state.id for state in parsing_table.states]
     states.sort()

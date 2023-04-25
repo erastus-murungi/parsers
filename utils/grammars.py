@@ -1,29 +1,22 @@
 GRAMMAR1 = (
+    """
+        <E> -> <T> <E0>
+        <E0> -> '+' <T> <E0>
+        <E0> ->
+        <T> -> <F> <T0>
+        <T0> -> '*' <F> <T0>
+        <T0> ->
+        <F> -> '(' <E> ')' | integer
+    """,
     {
         "(": "(",
         ")": ")",
         "+": "+",
         "*": "*",
     },
-    """
-        <E> -> <T> <E0>
-        <E0> -> ('+' <T> <E0>)?
-        <T> -> <F> <T0>
-        <T0> -> ('*' <F> <T0>)?
-        <F> -> '(' <E> ')' | integer
-    """,
 )
 
 GRAMMAR2 = (
-    {
-        "+": "+",
-        "-": "-",
-        "*": "*",
-        "/": "/",
-        "(": "(",
-        ")": ")",
-        "^": "^",
-    },
     """
        <program> -> <expression>
        <expression> -> <term> | <term> <add_op> <expression>
@@ -35,48 +28,42 @@ GRAMMAR2 = (
        <mult_op> -> '*' | '/'
        <digit> -> integer | float
    """,
+    {
+        "+": "+",
+        "-": "-",
+        "*": "*",
+        "/": "/",
+        "(": "(",
+        ")": ")",
+        "^": "^",
+    },
 )
 
 GRAMMAR_AMBIGUOUS_PLUS_MINUS = (
+    """
+        <A> -> <A> '+' <A> | <A> '-' <A> | 'a'
+    """,
     {
         "+": "+",
         "-": "-",
         "a": "a",
     },
-    """
-        <A> -> <A> '+' <A> | <A> '-' <A> | 'a'
-    """,
 )
 
 GRAMMAR_LR0 = (
+    """
+            <E> -> <T>';' | <T> '+' <E>
+            <T> -> '('<E>')' | integer
+    """,
     {
         "+": "+",
         ";": ";",
         "(": "(",
         ")": ")",
     },
-    """
-            <E> -> <T>';' | <T> '+' <E>
-            <T> -> '('<E>')' | integer
-    """,
 )
 
 GRAMMAR_REGEX = (
-    {
-        "+": "+",
-        "^": "^",
-        "?": "?",
-        "*": "*",
-        "?:": "?:",
-        "[": "[",
-        "]": "]",
-        "(": "(",
-        ")": ")",
-        "\\w": "\\w",
-        "{": "{",
-        "}": "}",
-        ",": ",",
-    },
     """
         <regex> -> '^'? <expr>
         <expr> -> <sub_expr>+ ( '|' <expr> )?
@@ -115,16 +102,31 @@ GRAMMAR_REGEX = (
                     | '\\G' 
                     | '$'
     """,
+    {
+        "+": "+",
+        "^": "^",
+        "?": "?",
+        "*": "*",
+        "?:": "?:",
+        "[": "[",
+        "]": "]",
+        "(": "(",
+        ")": ")",
+        "\\w": "\\w",
+        "{": "{",
+        "}": "}",
+        ",": ",",
+    },
 )
 
 GRAMMAR_DYCK = (
+    """
+        <S> -> ('(' <S> ')' <S>)?
+    """,
     {
         "(": "(",
         ")": ")",
     },
-    """
-        <S> -> ('(' <S> ')' <S>)?
-    """,
 )
 
 GRAMMAR_0N1N = (
@@ -136,7 +138,6 @@ GRAMMAR_0N1N = (
 )
 
 GRAMMAR3 = (
-    {"(": ")"},
     """
         <S> -> <NP> <VP>
         <S> -> <Aux> <NP> <VP>
@@ -161,16 +162,56 @@ GRAMMAR3 = (
         
         <Det> -> 'that' | 'this' | 'the' | 'a' | 'an'
         <Noun> -> 'book' | 'flight' | 'meal' | 'money' | 'time'
-        <Verb> -> 'book' | 'include' | prefer
+        <Verb> -> 'book' | 'include' | 'prefer'
         <Pronoun> -> 'I' | 'you' | 'she' | 'he' | 'it' | 'me' | 'us' | 'you' | 'them'
         <ProperNoun> -> 'Houston' | 'TWA'
         <Aux> -> 'does'
         <Preposition> -> 'from' | 'to' | 'on' | 'near' | 'through'
     """,
+    {"(": ")"},
 )
 
 
 DECAF_GRAMMAR = (
+    """
+        <program> ->  <import_decl>* <field_decl>* <method_decl>*
+        <import_decl> -> 'import' word (',' word)* ';'
+        <field_decl> -> <type> <var_decl> (',' <var_decl>)* ';'
+        <var_decl> -> word | word '[' integer ']'
+        <method_decl> -> <method_return> word '(' <method_params> (<type> word)? ')' <block>
+        <method_params> -> (<type> word ',' )*
+        <method_return> -> <type> | 'void' 
+        <block> -> '{' <field_decl>* <statement>* '}'
+        <type> -> 'int' | 'float' | 'char' | 'boolean'
+        <statement> -> <location> <assign_expr> ';'
+                    | <method_call> ';'
+                    | 'if' '(' <expr> ')' <block> ('else' <block>)?
+                    | 'while' '(' <expr> ')' <block>
+                    | 'return' <expr>? ';'
+                    | 'for' '(' <for_init>? ';' <expr>? ';' <for_update>? ')' <block>
+                    | 'break' ';'
+                    | 'continue' ';'
+        <for_init> -> <type>? word '=' <expr>
+        <for_update> -> <location> <update>
+        <update> -> <increment> | <compound_assign_op> <expr>
+        <increment> -> '++' | '--'
+        <compound_assign_op> -> '+=' | '-=' | '*=' | '/='
+        <assign_op> -> '=' | <compound_assign_op>
+        <assign_expr> -> <assign_op> <expr> | <increment>
+        <method_call> -> word '(' (<expr> (',' <expr>)*)? ')'
+        <location> -> word  | word '[' <expr> ']'
+        <expr> -> <location> 
+                | <method_call> 
+                | <literal> 
+                | <expr> <bin_op> <expr> 
+                | '!' <expr> 
+                | '-' <expr> 
+                | '(' <expr> ')'
+                | <expr> '?' <expr> ':' <expr>
+                | 'len' '(' word ')'
+        <bin_op> -> '+' | '-' | '*' | '/' | '%' | '&&' | '||' | '==' | '!=' | '<' | '>' | '<=' | '>='
+        <literal> -> integer | float | char | 'true' | 'false'
+    """,
     {
         "int": "int",
         "char": "char",
@@ -211,43 +252,17 @@ DECAF_GRAMMAR = (
         "-=": "-=",
         "<<=": "<<=",
     },
+)
+
+GRAMMAR_LL3 = (
     """
-        <program> ->  <import_decl>* <field_decl>* <method_decl>*
-        <import_decl> -> 'import' word (',' word)* ';'
-        <field_decl> -> <type> <var_decl> (',' <var_decl>)* ';'
-        <var_decl> -> word | word '[' integer ']'
-        <method_decl> -> <method_return> word '(' <method_params> (<type> word)? ')' <block>
-        <method_params> -> (<type> word ',' )*
-        <method_return> -> <type> | 'void' 
-        <block> -> '{' <field_decl>* <statement>* '}'
-        <type> -> 'int' | 'float' | 'char' | 'boolean'
-        <statement> -> <location> <assign_expr> ';'
-                    | <method_call> ';'
-                    | 'if' '(' <expr> ')' <block> ('else' <block>)?
-                    | 'while' '(' <expr> ')' <block>
-                    | 'return' <expr>? ';'
-                    | 'for' '(' <for_init>? ';' <expr>? ';' <for_update>? ')' <block>
-                    | 'break' ';'
-                    | 'continue' ';'
-        <for_init> -> <type>? word '=' <expr>
-        <for_update> -> <location> <update>
-        <update> -> <increment> | <compound_assign_op> <expr>
-        <increment> -> '++' | '--'
-        <compound_assign_op> -> '+=' | '-=' | '*=' | '/='
-        <assign_op> -> '=' | <compound_assign_op>
-        <assign_expr> -> <assign_op> <expr> | <increment>
-        <method_call> -> word '(' (<expr> (',' <expr>)*)? ')'
-        <location> -> word  | word '[' <expr> ']'
-        <expr> -> <location> 
-                | <method_call> 
-                | <literal> 
-                | <expr> <bin_op> <expr> 
-                | '!' <expr> 
-                | '-' <expr> 
-                | '(' <expr> ')'
-                | <expr> '?' <expr> ':' <expr>
-                | 'len' '(' word ')'
-        <bin_op> -> '+' | '-' | '*' | '/' | '%' | '&&' | '||' | '==' | '!=' | '<' | '>' | '<=' | '>='
-        <literal> -> integer | float | char | 'true' | 'false'
+        <S> -> 'b''b'<C>'d' | <B>'c''c'
+        <B> -> 'b'<B> | 'b'
+        <C> -> 'c'<C> | 'c'
     """,
+    {
+        "b": "b",
+        "c": "c",
+        "d": "d",
+    },
 )

@@ -3,7 +3,7 @@ from functools import cache
 
 from more_itertools import one
 
-from grammar import EOF, NonTerminal, Terminal
+from grammar import EOF, Grammar, NonTerminal, Terminal
 from lr.core import LRState, Reduce
 from lr.lr0 import LR0Item, LR0ParsingTable
 
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     from rich import print as print_rich
     from rich.pretty import pretty_repr
 
-    from utils.parse_grammar import parse_grammar
+    from utils.grammars import GRAMMAR1
 
     # table = {
     #     "x": "x",
@@ -111,26 +111,8 @@ if __name__ == "__main__":
     #     <T> -> ( <E> )
     #     <T> -> integer
     # """
-    table = {
-        "+": "+",
-        "*": "*",
-        "(": "(",
-        ")": ")",
-    }
 
-    g = """
-    <E'>
-    <E'> -> <E>
-    <E> -> <E>+<T>
-    <E> -> <T>
-    <T> -> <T>*<F>
-    <T> -> <F>
-    <F> -> (<E>)
-    <F> -> integer
-
-    """
-
-    cfg = parse_grammar(g, table)
+    cfg = Grammar.from_str(*GRAMMAR1)
     print_rich(pretty_repr(cfg))
 
     p = LR1ParsingTable(cfg)

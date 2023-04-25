@@ -9,32 +9,32 @@ from parsers.parser import ParseTree
 from tokenizer import Tokenizer
 
 Shift = Goto = Accept = int
-Reduce = tuple[int, int]
-Action = Shift | Goto | Accept | Reduce
+Reduce = tuple[str, int]
+Action = int | Reduce
 
 
 install(show_locals=True)
 
 
-def is_accept(act: Action) -> bool:
+def is_accept(act: int) -> bool:
     return act == -1
 
 
-def is_goto(act: Action) -> bool:
+def is_goto(act: int) -> bool:
     return act & 0b1 == 0b0
 
 
-def is_shift(act: Action) -> bool:
+def is_shift(act: int) -> bool:
     return act & 0b1 == 0b1
 
 
-tokenizer_table: dict[str, str] = "%tokenizer_table%"
+tokenizer_table: dict[str, str] = "%tokenizer_table%"  # type: ignore
 
-parsing_table: dict[tuple[int, str], Action] = "%parsing_table%"
+parsing_table: dict[tuple[int, str], Action] = "%parsing_table%"  # type: ignore
 
-states: list[int] = "%states%"
+states: list[int] = "%states%"  # type: ignore
 
-expected_tokens: dict[int, list[str]] = "%expected_tokens%"
+expected_tokens: dict[int, list[str]] = "%expected_tokens%"  # type: ignore
 
 
 def parse(input_str: str) -> ParseTree:
@@ -54,11 +54,11 @@ def parse(input_str: str) -> ParseTree:
                 stack.append(action >> 0b1)
                 tree.append(token)
                 token_index += 1
-            case (lhs, len_rhs):
+            case (str(lhs), int(len_rhs)):
                 stack = stack[: -len_rhs or None]
-                action = parsing_table[(stack[-1], lhs)]
-                assert is_goto(action)
-                stack.append(action >> 0b1)
+                act = parsing_table[(stack[-1], lhs)]
+                assert isinstance(act, int) and is_goto(act)
+                stack.append(act >> 0b1)
                 tree = tree[:-len_rhs] + [ParseTree(lhs, tree[-len_rhs:])]
             case _:
                 raise SyntaxError(

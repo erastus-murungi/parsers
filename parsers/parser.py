@@ -30,7 +30,7 @@ class AST(TypedDict):
 
 
 class ParseTree(NamedTuple):
-    id: Symbol
+    id: str
     expansion: list[Union["ParseTree", Terminal]]
 
     def collapse(self) -> AST:
@@ -46,7 +46,7 @@ class ParseTree(NamedTuple):
                         expansion.extend(child_collapse["expansion"])
                     else:
                         expansion.append(child_collapse)
-        return {"id": self.id.name, "expansion": expansion}
+        return {"id": self.id, "expansion": expansion}
 
 
 class Parser(ABC):
@@ -66,7 +66,7 @@ class Parser(ABC):
 class LL1Parser(Parser):
     def parse(self) -> Iterator[ParseTree] | ParseTree:
         parsing_table = LL1ParsingTable(self.grammar)
-        root = ParseTree(self.grammar.start, [])
+        root = ParseTree(str(self.grammar.start), [])
         stack, token_index = [
             (EOF, root),
             (self.grammar.start, root),
@@ -84,7 +84,7 @@ class LL1Parser(Parser):
             else:
                 non_terminal = cast(NonTerminal, symbol)
                 if (rule := parsing_table.get((non_terminal, token.id))) is not None:
-                    nodes = [ParseTree(sym, []) for sym in rule]
+                    nodes = [ParseTree(str(sym), []) for sym in rule]
                     root.expansion.extend(nodes)
                     stack.extend(reversed(list(zip(rule, nodes))))
                 else:
@@ -170,7 +170,7 @@ class EarleyParser(Parser):
                             children_possibilities.append(child_tree)
                             item_start_index = item.explicit_index
                 for children in product(*children_possibilities):
-                    yield ParseTree(path_root.name, list(children))
+                    yield ParseTree(str(path_root.name), list(children))
 
         n_tokens = len(self.tokens) - 1  # ignore EOF
         for earley_item in parse_forest[0]:
@@ -208,7 +208,7 @@ class LR0Parser(Parser):
                         case Goto(current_state):
                             stack.append(current_state)
                             tree_top = tree[-len_rhs:]
-                            tree = tree[:-len_rhs] + [ParseTree(lhs, tree_top)]
+                            tree = tree[:-len_rhs] + [ParseTree(str(lhs), tree_top)]
                         case _:
                             raise SyntaxError(
                                 f"Unexpected {current_token.id} at {current_token.loc}"
