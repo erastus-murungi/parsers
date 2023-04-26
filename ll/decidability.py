@@ -64,7 +64,7 @@ if __name__ == "__main__":
     from rich import print as rich_print
     from rich.pretty import pretty_repr
 
-    from utils.grammars import GRAMMAR_JSON
+    from utils.grammars import GRAMMAR2
 
-    g = Grammar.from_str(*GRAMMAR_JSON)
+    g = Grammar.from_str(GRAMMAR2)
     rich_print(pretty_repr(compute_k(g)))

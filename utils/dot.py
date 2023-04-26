@@ -106,7 +106,7 @@ def draw_tree(root: ParseTree | AST | Terminal, output_filename: str = "tree.pdf
 
     def get_label_non_token(node):
         if isinstance(node, ParseTree):
-            return node.id.name
+            return node.id
         else:
             return node["id"]
 

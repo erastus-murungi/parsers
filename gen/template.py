@@ -6,7 +6,6 @@ from rich.traceback import install
 
 from grammar import EOF, Terminal
 from parsers.parser import ParseTree
-from tokenizer import Tokenizer
 
 Shift = Goto = Accept = int
 Reduce = tuple[str, int]
@@ -28,17 +27,17 @@ def is_shift(act: int) -> bool:
     return act & 0b1 == 0b1
 
 
-tokenizer_table: dict[str, str] = "%tokenizer_table%"  # type: ignore
-
 parsing_table: dict[tuple[int, str], Action] = "%parsing_table%"  # type: ignore
 
 states: list[int] = "%states%"  # type: ignore
 
 expected_tokens: dict[int, list[str]] = "%expected_tokens%"  # type: ignore
 
+tokenizer: Tokenizer = "%tokenizer_table%"  # type: ignore
+
 
 def parse(input_str: str) -> ParseTree:
-    tokens = Tokenizer(input_str, tokenizer_table).get_tokens_no_whitespace()
+    tokens = tokenizer.get_tokens_no_whitespace(input_str)
     stack, token_index = [states[0]], 0
     tree: list[ParseTree | Terminal] = []
 

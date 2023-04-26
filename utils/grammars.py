@@ -1,5 +1,4 @@
-GRAMMAR1 = (
-    """
+GRAMMAR1 = """
         <E> -> <T> <E0>
         <E0> -> '+' <T> <E0>
         <E0> ->
@@ -7,64 +6,33 @@ GRAMMAR1 = (
         <T0> -> '*' <F> <T0>
         <T0> ->
         <F> -> '(' <E> ')' | integer
-    """,
-    {
-        "(": "(",
-        ")": ")",
-        "+": "+",
-        "*": "*",
-    },
-)
-
-GRAMMAR2 = (
     """
+
+GRAMMAR2 = """
        <program> -> <expression>
-       <expression> -> <term> | <term> <add_op> <expression>
-       <term> -> <factor> | <factor> <mult_op> <term>
-       <factor> -> <power> | <power> '^' <factor>
+       <expression> -> <term> <expr_add>
+       <expr_add> -> (<add_op> <expression>)?
+       <term> -> <factor> <mult_term>
+       <mult_term> -> (<mult_op> <term>)?
+       <factor> -> <power> <power_factor>
+       <power_factor> -> (<power> '^' <factor>)?
        <power> -> <number> | '(' <expression> ')'
-       <number> -> <digit> | <digit> <number>
+       <number> -> integer | float
        <add_op> -> '+' | '-'
        <mult_op> -> '*' | '/'
-       <digit> -> integer | float
-   """,
-    {
-        "+": "+",
-        "-": "-",
-        "*": "*",
-        "/": "/",
-        "(": "(",
-        ")": ")",
-        "^": "^",
-    },
-)
+   """
 
-GRAMMAR_AMBIGUOUS_PLUS_MINUS = (
-    """
+
+GRAMMAR_AMBIGUOUS_PLUS_MINUS = """
         <A> -> <A> '+' <A> | <A> '-' <A> | 'a'
-    """,
-    {
-        "+": "+",
-        "-": "-",
-        "a": "a",
-    },
-)
-
-GRAMMAR_LR0 = (
     """
+
+GRAMMAR_LR0 = """
             <E> -> <T>';' | <T> '+' <E>
-            <T> -> '('<E>')' | integer
-    """,
-    {
-        "+": "+",
-        ";": ";",
-        "(": "(",
-        ")": ")",
-    },
-)
+            <T> -> '(' <E> ')' | integer
+            """
 
-GRAMMAR_REGEX = (
-    """
+GRAMMAR_REGEX = """
         <regex> -> '^'? <expr>
         <expr> -> <sub_expr>+ ( '|' <expr> )?
         <sub_expr> -> <match> 
@@ -101,33 +69,9 @@ GRAMMAR_REGEX = (
                     | '\\Z' 
                     | '\\G' 
                     | '$'
-    """,
-    {
-        "+": "+",
-        "^": "^",
-        "?": "?",
-        "*": "*",
-        "?:": "?:",
-        "[": "[",
-        "]": "]",
-        "(": "(",
-        ")": ")",
-        "\\w": "\\w",
-        "{": "{",
-        "}": "}",
-        ",": ",",
-    },
-)
-
-GRAMMAR_DYCK = (
     """
-        <S> -> ('(' <S> ')' <S>)?
-    """,
-    {
-        "(": "(",
-        ")": ")",
-    },
-)
+
+GRAMMAR_DYCK = "<S> -> ('(' <S> ')' <S>)?"
 
 GRAMMAR_0N1N = (
     {"0": "0", "1": "1"},
@@ -137,8 +81,7 @@ GRAMMAR_0N1N = (
     """,
 )
 
-GRAMMAR3 = (
-    """
+GRAMMAR3 = """
         <S> -> <NP> <VP>
         <S> -> <Aux> <NP> <VP>
         <S> -> <VP>
@@ -167,9 +110,7 @@ GRAMMAR3 = (
         <ProperNoun> -> 'Houston' | 'TWA'
         <Aux> -> 'does'
         <Preposition> -> 'from' | 'to' | 'on' | 'near' | 'through'
-    """,
-    {"(": ")"},
-)
+    """
 
 DECAF_GRAMMAR = (
     """
@@ -268,30 +209,23 @@ GRAMMAR_LL1 = (
     },
 )
 
-GRAMMAR_LL5 = (
-    """
+GRAMMAR_LL5 = """
         <S> -> 'b''b'<C>'d' | <B> 'c''c'
         <B> -> 'b'<B> | 'b'
         <C> -> 'c'<C> | 'c'
-    """,
-    {
-        "b": "b",
-        "c": "c",
-        "d": "d",
-    },
-)
-
-GRAMMAR_JSON = (
     """
+
+GRAMMAR_JSON = """
         <Json> -> <Value>
-        <Object> -> '{' <Pair> ( ',' <Pair> )* '}' | '{' '}'
+        <Object> -> '{' <Pair> ( ',' <Pair> )* '}' 
+                    | '{' '}'
 
         <Pair>  -> <String> ':' <Value>
 
         <Array> -> '[' <Value> ( ',' <Value> )* ']'
          | '[' ']'
 
-        <Value>   -> <String>
+        <Value> -> <String>
          | <Number>
          | <Object>
          | <Array>
@@ -299,19 +233,7 @@ GRAMMAR_JSON = (
          | 'false'
          | 'null'
 
-        <String> -> word
+        <String> -> r'".*?"'
 
         <Number> -> float | integer
-    """,
-    {
-        "{": "{",
-        "}": "}",
-        "[": "[",
-        "]": "]",
-        ":": ":",
-        ",": ",",
-        "true": "true",
-        "false": "false",
-        "null": "null",
-    },
-)
+    """

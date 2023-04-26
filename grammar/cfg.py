@@ -18,7 +18,9 @@ from .core import (
     NullableSet,
     Symbol,
     Terminal,
+    Tokenizer,
 )
+from .number_regex import Floatnumber, Intnumber
 
 
 def update_set(set1, set2):
@@ -31,7 +33,7 @@ def update_set(set1, set2):
 
 
 class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
-    __slots__ = ("terminals", "non_terminals", "start", "orig_start")
+    __slots__ = ("terminals", "non_terminals", "start", "orig_start", "tokenizer")
 
     def __init__(
         self,
@@ -40,12 +42,14 @@ class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
         start: NonTerminal,
         orig_start: NonTerminal,
         non_terminals: frozenset[NonTerminal],
+        tokenizer: Tokenizer,
     ):
         super().__init__(mapping)
         self.terminals = terminals
         self.non_terminals = non_terminals
         self.orig_start = orig_start
         self.start = start
+        self.tokenizer = tokenizer
 
     def iter_productions(self) -> Iterator[tuple[NonTerminal, Expansion]]:
         for origin, expansions in self.items():
@@ -130,10 +134,11 @@ class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
         )
 
     @staticmethod
-    def from_str(grammar_str: str, table: Optional[dict[str, str]] = None) -> "Grammar":
-        if table is None:
-            table = {}
-        return _parse_grammar(grammar_str, table)
+    def from_str(
+        grammar_str: str,
+        transform_regex_to_right=False,
+    ) -> "Grammar":
+        return _parse_grammar(grammar_str, transform_regex_to_right)
 
     class Builder:
         """
@@ -192,7 +197,7 @@ class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
             self._dict[origin] = definition
             return self
 
-        def build(self) -> "Grammar":
+        def build(self, tokenizer: Tokenizer) -> "Grammar":
             if not self._dict:
                 raise ValueError("grammar must have at least one rule")
             orig_start = self._start or first(self._dict)
@@ -217,6 +222,7 @@ class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
                 start=self._implicit_start,
                 non_terminals=frozenset(self._dict.keys()),
                 orig_start=orig_start,
+                tokenizer=tokenizer,
             )
 
     def get_mutable_copy(self) -> dict[NonTerminal, list[Expansion]]:
@@ -240,6 +246,8 @@ def iter_symbol_tokens(input_str: str) -> Iterator[str]:
             yield m.group(0)
         elif m := re.match(r"'\w+?'[?*+]?", input_str):  # 'any word literal'
             yield m.group(0)
+        elif m := re.match(r"r'.*'", input_str):  # any number
+            yield m.group(0)
         elif m := re.match(r"\w+", input_str):  # keyword
             yield m.group(0)
         elif m := re.match(r"'.*?'[?*+]?", input_str):  # any literal
@@ -249,9 +257,23 @@ def iter_symbol_tokens(input_str: str) -> Iterator[str]:
         input_str = input_str[m.end() :].strip()
 
 
-def _parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> Grammar:
+common = {
+    "integer": re.compile(Intnumber),
+    "float": re.compile(Floatnumber),
+    "whitespace": re.compile(r"\s+"),
+    "newline": re.compile(r"\n"),
+    "char": re.compile(r"."),
+    "word": re.compile(r"\w+"),
+}
+
+
+def _parse_grammar(
+    grammar_str: str,
+    transform_regex_to_right_recursive: bool,
+) -> Grammar:
     """Ad Hoc grammar parser"""
     grammar_builder = Grammar.Builder()
+    patterns: dict[str, re.Pattern] = {}
     for origin_str, definition_str in sliced(
         re.split(r"<(\w+)>\s*->", grammar_str.strip())[1:], n=2, strict=True
     ):
@@ -280,7 +302,9 @@ def _parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> Grammar:
                             assert lexeme.startswith("<")
                             R = NonTerminal(lexeme[1:-2])
 
-                        N = NonTerminal(f"N_{next(temps_counter)}")
+                        N = NonTerminal(
+                            f"N_{next(temps_counter)}", original_repr=lexeme
+                        )
                         if lexeme.endswith("?"):
                             # R? ⇒    N → ε
                             #         N → R
@@ -288,15 +312,23 @@ def _parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> Grammar:
                             queue.append((N, (R,)))
                         elif lexeme.endswith("*"):
                             # R* ⇒    N → ε
-                            #         N → N R
                             queue.append((N, (EMPTY,)))
-                            queue.append((N, (N, R)))
+                            if transform_regex_to_right_recursive:
+                                # N → R N
+                                queue.append((N, (R, N)))
+                            else:
+                                # N → N R
+                                queue.append((N, (N, R)))
                         else:
                             # R+ ⇒    N → R
-                            #         N → N R
                             assert lexeme.endswith("+")
                             queue.append((N, (R,)))
-                            queue.append((N, (N, R)))
+                            if transform_regex_to_right_recursive:
+                                # N -> R N
+                                queue.append((N, (R, N)))
+                            else:
+                                # N → N R
+                                queue.append((N, (N, R)))
                         rule.append(N)
 
                     elif lexeme == "<>":
@@ -307,21 +339,28 @@ def _parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> Grammar:
                     elif lexeme.startswith("<"):
                         # this is a non-terminal
                         rule.append(NonTerminal(lexeme[1:-1]))
-                    elif lexeme in (
-                        "integer",
-                        "float",
-                        "whitespace",
-                        "newline",
-                        "char",
-                        "word",
-                    ):
+                    elif lexeme in common:
+                        patterns[lexeme] = common[lexeme]
                         # keywords
                         rule.append(Terminal(lexeme, lexeme, DUMMY_LOC))
-                    elif lexeme in defined_tokens or re.match(r"'.*'", lexeme):
+                    elif re.match(r"'.*'", lexeme):
                         lexeme = lexeme[1:-1]
+                        patterns[lexeme] = re.compile(
+                            re.escape(lexeme), flags=re.DOTALL
+                        )
                         rule.append(
                             Terminal(
-                                defined_tokens.get(lexeme, lexeme),
+                                lexeme,
+                                lexeme,
+                                DUMMY_LOC,
+                            )
+                        )
+                    elif re.match(r"r'.*'", lexeme):
+                        lexeme = lexeme[2:-1]
+                        patterns[lexeme] = re.compile(lexeme, flags=re.DOTALL)
+                        rule.append(
+                            Terminal(
+                                lexeme,
                                 lexeme,
                                 DUMMY_LOC,
                             )
@@ -332,4 +371,4 @@ def _parse_grammar(grammar_str: str, defined_tokens: dict[str, str]) -> Grammar:
             else:
                 grammar_builder.add_expansion(origin, expansion)
 
-    return grammar_builder.build()
+    return grammar_builder.build(Tokenizer(patterns=patterns))

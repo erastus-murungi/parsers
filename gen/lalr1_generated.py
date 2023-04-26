@@ -3,10 +3,10 @@
 """
 from more_itertools import one
 from rich.traceback import install
+from tokenizer import Tokenizer
 
 from grammar import EOF, Terminal
 from parsers.parser import ParseTree
-from tokenizer import Tokenizer
 
 Shift = Goto = Accept = int
 Reduce = tuple[str, int]

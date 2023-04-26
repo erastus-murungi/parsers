@@ -1,256 +1,49 @@
 digraph G {  graph [fontname = "Courier New", engine="sfdp"];
  node [fontname = "Courier", style = rounded];
  edge [fontname = "Courier"];
-4491215808:from_false -> 4491216384:from_node [arrowhead=vee] 
-4491216384:from_false -> 4491278080:from_node [arrowhead=vee] 
-4491278080:from_false -> 4491277504:from_node [arrowhead=vee] 
-4491277504:from_false -> 4491159376:from_node [arrowhead=vee] 
-4491216384:from_false -> 4491276992:from_node [arrowhead=vee] 
-4491276992:from_false -> 4491403648:from_node [arrowhead=vee] 
-4491403648:from_false -> 4491403456:from_node [arrowhead=vee] 
-4491403456:from_false -> 4491402112:from_node [arrowhead=vee] 
-4491402112:from_false -> 4491400896:from_node [arrowhead=vee] 
-4491400896:from_false -> 4491398848:from_node [arrowhead=vee] 
-4491398848:from_false -> 4491396032:from_node [arrowhead=vee] 
-4491396032:from_false -> 4491395904:from_node [arrowhead=vee] 
-4491395904:from_false -> 4491395776:from_node [arrowhead=vee] 
-4491395776:from_false -> 4491279936:from_node [arrowhead=vee] 
-4491279936:from_false -> 4491279808:from_node [arrowhead=vee] 
-4491279808:from_false -> 4490524816:from_node [arrowhead=vee] 
-4491395776:from_false -> 4491395648:from_node [arrowhead=vee] 
-4491395648:from_false -> 4491395520:from_node [arrowhead=vee] 
-4491395520:from_false -> 4491395328:from_node [arrowhead=vee] 
-4491395328:from_false -> 4489708688:from_node [arrowhead=vee] 
-4491398848:from_false -> 4491398720:from_node [arrowhead=vee] 
-4491398720:from_false -> 4491398656:from_node [arrowhead=vee] 
-4491398656:from_false -> 4491229392:from_node [arrowhead=vee] 
-4491398656:from_false -> 4491396352:from_node [arrowhead=vee] 
-4491396352:from_false -> 4491396224:from_node [arrowhead=vee] 
-4491396224:from_false -> 4491216080:from_node [arrowhead=vee] 
-4491398656:from_false -> 4491398464:from_node [arrowhead=vee] 
-4491398464:from_false -> 4491398272:from_node [arrowhead=vee] 
-4491398272:from_false -> 4491398144:from_node [arrowhead=vee] 
-4491398144:from_false -> 4491398016:from_node [arrowhead=vee] 
-4491398016:from_false -> 4491397824:from_node [arrowhead=vee] 
-4491397824:from_false -> 4491397696:from_node [arrowhead=vee] 
-4491397696:from_false -> 4491230800:from_node [arrowhead=vee] 
-4491398656:from_false -> 4491229968:from_node [arrowhead=vee] 
-4491400896:from_false -> 4491400768:from_node [arrowhead=vee] 
-4491400768:from_false -> 4491400640:from_node [arrowhead=vee] 
-4491400640:from_false -> 4491400448:from_node [arrowhead=vee] 
-4491400448:from_false -> 4491400320:from_node [arrowhead=vee] 
-4491400320:from_false -> 4491400256:from_node [arrowhead=vee] 
-4491400256:from_false -> 4491231056:from_node [arrowhead=vee] 
-4491400256:from_false -> 4491400128:from_node [arrowhead=vee] 
-4491400128:from_false -> 4491399744:from_node [arrowhead=vee] 
-4491399744:from_false -> 4491399360:from_node [arrowhead=vee] 
-4491399360:from_false -> 4491399232:from_node [arrowhead=vee] 
-4491399232:from_false -> 4491399104:from_node [arrowhead=vee] 
-4491399104:from_false -> 4491231184:from_node [arrowhead=vee] 
-4491399744:from_false -> 4491399616:from_node [arrowhead=vee] 
-4491399616:from_false -> 4491399488:from_node [arrowhead=vee] 
-4491399488:from_false -> 4491230992:from_node [arrowhead=vee] 
-4491400128:from_false -> 4491400000:from_node [arrowhead=vee] 
-4491400000:from_false -> 4491399872:from_node [arrowhead=vee] 
-4491399872:from_false -> 4491230288:from_node [arrowhead=vee] 
-4491400256:from_false -> 4491230672:from_node [arrowhead=vee] 
-4491402112:from_false -> 4491401984:from_node [arrowhead=vee] 
-4491401984:from_false -> 4491401856:from_node [arrowhead=vee] 
-4491401856:from_false -> 4491401280:from_node [arrowhead=vee] 
-4491401280:from_false -> 4491401152:from_node [arrowhead=vee] 
-4491401152:from_false -> 4491401024:from_node [arrowhead=vee] 
-4491401024:from_false -> 4491230544:from_node [arrowhead=vee] 
-4491401856:from_false -> 4491401728:from_node [arrowhead=vee] 
-4491401728:from_false -> 4491401600:from_node [arrowhead=vee] 
-4491401600:from_false -> 4491401408:from_node [arrowhead=vee] 
-4491401408:from_false -> 4491229200:from_node [arrowhead=vee] 
-4491403456:from_false -> 4491403328:from_node [arrowhead=vee] 
-4491403328:from_false -> 4491403200:from_node [arrowhead=vee] 
-4491403200:from_false -> 4491402240:from_node [arrowhead=vee] 
-4491402240:from_false -> 4491401536:from_node [arrowhead=vee] 
-4491401536:from_false -> 4491267664:from_node [arrowhead=vee] 
-4491403200:from_false -> 4491403072:from_node [arrowhead=vee] 
-4491403072:from_false -> 4491402944:from_node [arrowhead=vee] 
-4491402944:from_false -> 4491402752:from_node [arrowhead=vee] 
-4491402752:from_false -> 4491402688:from_node [arrowhead=vee] 
-4491402688:from_false -> 4491277072:from_node [arrowhead=vee] 
-4491402688:from_false -> 4491274576:from_node [arrowhead=vee] 
-4491402688:from_false -> 4491402560:from_node [arrowhead=vee] 
-4491402560:from_false -> 4491402432:from_node [arrowhead=vee] 
-4491402432:from_false -> 4491264784:from_node [arrowhead=vee] 
-4491402432:from_false -> 4491275344:from_node [arrowhead=vee] 
-4491402688:from_false -> 4491276496:from_node [arrowhead=vee] 
-4491403648:from_false -> 4491403520:from_node [arrowhead=vee] 
-4491403520:from_false -> 4491265088:from_node [arrowhead=vee] 
-4491265088:from_false -> 4491265856:from_node [arrowhead=vee] 
-4491265856:from_false -> 4491266816:from_node [arrowhead=vee] 
-4491266816:from_false -> 4491268880:from_node [arrowhead=vee] 
-   4491215808 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Start"];
-   4491216384 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="regex"];
-   4491216384 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="regex"];
-   4491278080 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_1"];
-   4491278080 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_1"];
-   4491277504 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="R_0"];
-   4491277504 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="R_0"];
-   4491159376 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="^"];
-   4491216384 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="regex"];
-   4491276992 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="expr"];
-   4491276992 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="expr"];
-   4491403648 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491403648 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491403456 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491403456 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491402112 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491402112 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491400896 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491400896 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491398848 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491398848 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491396032 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491396032 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491395904 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491395904 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491395776 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491395776 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491279936 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_item"];
-   4491279936 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_item"];
-   4491279808 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491279808 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4490524816 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="a"];
-   4491395776 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491395648 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_8"];
-   4491395648 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_8"];
-   4491395520 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="quantifier"];
-   4491395520 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="quantifier"];
-   4491395328 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="quantifier_type"];
-   4491395328 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="quantifier_type"];
-   4489708688 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="+"];
-   4491398848 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491398720 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491398720 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491398656 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="group"];
-   4491398656 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="group"];
-   4491229392 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="("];
-   4491398656 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="group"];
-   4491396352 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_6"];
-   4491396352 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_6"];
-   4491396224 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="R_5"];
-   4491396224 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="R_5"];
-   4491216080 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="?:"];
-   4491398656 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="group"];
-   4491398464 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="expr"];
-   4491398464 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="expr"];
-   4491398272 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491398272 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491398144 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491398144 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491398016 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491398016 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491397824 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_item"];
-   4491397824 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_item"];
-   4491397696 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491397696 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491230800 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="ab"];
-   4491398656 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="group"];
-   4491229968 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label=")"];
-   4491400896 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491400768 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491400768 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491400640 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491400640 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491400448 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_item"];
-   4491400448 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_item"];
-   4491400320 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_char_class"];
-   4491400320 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_char_class"];
-   4491400256 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="char_group"];
-   4491400256 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="char_group"];
-   4491231056 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="\["];
-   4491400256 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="char_group"];
-   4491400128 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_11"];
-   4491400128 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_11"];
-   4491399744 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_11"];
-   4491399744 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_11"];
-   4491399360 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_11"];
-   4491399360 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_11"];
-   4491399232 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="char_group_item"];
-   4491399232 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="char_group_item"];
-   4491399104 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491399104 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491231184 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="a"];
-   4491399744 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_11"];
-   4491399616 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="char_group_item"];
-   4491399616 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="char_group_item"];
-   4491399488 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491399488 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491230992 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="-"];
-   4491400128 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_11"];
-   4491400000 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="char_group_item"];
-   4491400000 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="char_group_item"];
-   4491399872 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491399872 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491230288 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="z"];
-   4491400256 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="char_group"];
-   4491230672 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="\]"];
-   4491402112 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491401984 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491401984 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491401856 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491401856 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491401280 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_item"];
-   4491401280 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_item"];
-   4491401152 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_char_class"];
-   4491401152 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_char_class"];
-   4491401024 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="char_class"];
-   4491401024 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="char_class"];
-   4491230544 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="\\w"];
-   4491401856 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491401728 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_8"];
-   4491401728 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_8"];
-   4491401600 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="quantifier"];
-   4491401600 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="quantifier"];
-   4491401408 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="quantifier_type"];
-   4491401408 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="quantifier_type"];
-   4491229200 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="+"];
-   4491403456 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491403328 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491403328 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491403200 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491403200 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491402240 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_item"];
-   4491402240 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_item"];
-   4491401536 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491401536 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491267664 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="c"];
-   4491403200 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491403072 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_8"];
-   4491403072 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_8"];
-   4491402944 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="quantifier"];
-   4491402944 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="quantifier"];
-   4491402752 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="quantifier_type"];
-   4491402752 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="quantifier_type"];
-   4491402688 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="range"];
-   4491402688 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="range"];
-   4491277072 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="\{"];
-   4491402688 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="range"];
-   4491274576 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="1"];
-   4491402688 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="range"];
-   4491402560 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_15"];
-   4491402560 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_15"];
-   4491402432 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="R_14"];
-   4491402432 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="R_14"];
-   4491264784 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label=","];
-   4491402432 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="R_14"];
-   4491275344 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="3"];
-   4491402688 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="range"];
-   4491276496 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="\}"];
-   4491403648 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="N_2"];
-   4491403520 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491403520 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="sub_expr"];
-   4491265088 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491265088 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match"];
-   4491265856 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_item"];
-   4491265856 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="match_item"];
-   4491266816 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491266816 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="literal"];
-   4491268880 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="$"];
+4550480192:from_false -> 4550480960:from_node [arrowhead=vee] 
+4550480960:from_false -> 4545590912:from_node [arrowhead=vee] 
+4545590912:from_false -> 4550151184:from_node [arrowhead=vee] 
+4550480960:from_false -> 4550481152:from_node [arrowhead=vee] 
+4550481152:from_false -> 4550153600:from_node [arrowhead=vee] 
+4550153600:from_false -> 4550158864:from_node [arrowhead=vee] 
+4550481152:from_false -> 4550481536:from_node [arrowhead=vee] 
+4550481536:from_false -> 4550153152:from_node [arrowhead=vee] 
+4550153152:from_false -> 4550149840:from_node [arrowhead=vee] 
+4550480960:from_false -> 4550479552:from_node [arrowhead=vee] 
+4550479552:from_false -> 4550481024:from_node [arrowhead=vee] 
+4550481024:from_false -> 4550148688:from_node [arrowhead=vee] 
+4550479552:from_false -> 4550479424:from_node [arrowhead=vee] 
+4550479424:from_false -> 4550481216:from_node [arrowhead=vee] 
+4550481216:from_false -> 4550148624:from_node [arrowhead=vee] 
+   4550480192 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="S"];
+   4550480960 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="VP"];
+   4550480960 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="VP"];
+   4545590912 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Verb"];
+   4545590912 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Verb"];
+   4550151184 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="book"];
+   4550480960 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="VP"];
+   4550481152 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
+   4550481152 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
+   4550153600 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Det"];
+   4550153600 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Det"];
+   4550158864 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="the"];
+   4550481152 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
+   4550481536 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Nominal"];
+   4550481536 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Nominal"];
+   4550153152 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Noun"];
+   4550153152 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Noun"];
+   4550149840 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="flight"];
+   4550480960 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="VP"];
+   4550479552 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="PP"];
+   4550479552 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="PP"];
+   4550481024 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Preposition"];
+   4550481024 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="Preposition"];
+   4550148688 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="through"];
+   4550479552 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="PP"];
+   4550479424 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
+   4550479424 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="NP"];
+   4550481216 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="ProperNoun"];
+   4550481216 [shape=record, style=filled, fillcolor=black, fontcolor=white, label="ProperNoun"];
+   4550148624 [shape=doublecircle, style=filled, fillcolor=white, fontcolor=black, label="Houston"];
 }

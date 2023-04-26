@@ -7,10 +7,10 @@ from utils.grammars import GRAMMAR_DYCK
 
 @pytest.mark.parametrize("grammar", [GRAMMAR_DYCK])
 def test_can_parse_dyck(grammar):
-    g, table = GRAMMAR_DYCK
-    cfg = Grammar.from_str(g, table)
-    assert recognize(cfg, "()(())", table, recognizer="lr1")
-    assert recognize(cfg, "((()))", table, recognizer="slr")
-    assert recognize(cfg, "((()))", table, recognizer="earley")
-    assert recognize(cfg, "((()))", table, recognizer="ll1")
-    assert recognize(cfg, "((()))", table, recognizer="dfs")
+    cfg = Grammar.from_str(GRAMMAR_DYCK)
+    assert recognize(cfg, "()(())", recognizer="lr1")
+    assert recognize(cfg, "((()))", recognizer="slr")
+    assert recognize(cfg, "((()))", recognizer="earley")
+    assert recognize(cfg, "((()))", recognizer="ll1")
+    assert recognize(cfg, "((()))", recognizer="dfs")
+    assert recognize(cfg, "((()))", recognizer="llk")

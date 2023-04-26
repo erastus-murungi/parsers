@@ -17,7 +17,6 @@ from lr import (
     Shift,
     SLRParsingTable,
 )
-from tokenizer import Tokenizer
 
 MAX_ITERATIONS = 1000_000
 
@@ -27,12 +26,10 @@ class RecognizerError(Exception):
 
 
 class Recognizer(ABC):
-    def __init__(self, grammar: Grammar, source: str, table):
+    def __init__(self, grammar: Grammar, source: str):
         self.grammar: Grammar = grammar
         self.source: str = source
-        self.tokens: list[Terminal] = Tokenizer(
-            source, table
-        ).get_tokens_no_whitespace()
+        self.tokens: list[Terminal] = grammar.tokenizer.get_tokens_no_whitespace(source)
 
     @abstractmethod
     def recognizes(self) -> bool:
@@ -151,7 +148,6 @@ class LLKRecognizer(Recognizer):
                 ) is not None:
                     stack.extend(reversed(rule))
                 else:
-                    TAB = "\n\t\t"
                     found = [
                         str(
                             TerminalSequence(
@@ -161,7 +157,9 @@ class LLKRecognizer(Recognizer):
                         for i in range(1, parsing_table.k + 1)
                     ]
                     raise SyntaxError(
-                        f"At position {token.loc}, "
+                        f"At position {token.loc}\n "
+                        f">  {self.source[token.loc.offset: token.loc.offset + 40]}\n"
+                        f"tokens: {[tk.lexeme for tk in self.tokens[token_index: token_index + parsing_table.k]]}\n"
                         f"was parsing {symbol!s} "
                         f"expecting one of :\n"
                         f"\t\t{parsing_table.get_expected(non_terminal)}\n"
@@ -235,7 +233,6 @@ class CYKRecognizer(Recognizer):
 def recognize(
     grammar: Grammar,
     source: str,
-    table: dict,
     *,
     recognizer: Literal[
         "earley", "lalr1", "ll1", "slr", "lr1", "lr0", "dfs", "llk", "cyk"
@@ -243,23 +240,23 @@ def recognize(
 ) -> bool:
     match recognizer:
         case "earley":
-            return EarleyRecognizer(grammar, source, table).recognizes()
+            return EarleyRecognizer(grammar, source).recognizes()
         case "lalr1":
-            return LALR1Recognizer(grammar, source, table).recognizes()
+            return LALR1Recognizer(grammar, source).recognizes()
         case "ll1":
-            return LL1Recognizer(grammar, source, table).recognizes()
+            return LL1Recognizer(grammar, source).recognizes()
         case "slr":
-            return SLRRecognizer(grammar, source, table).recognizes()
+            return SLRRecognizer(grammar, source).recognizes()
         case "lr1":
-            return LR1Recognizer(grammar, source, table).recognizes()
+            return LR1Recognizer(grammar, source).recognizes()
         case "lr0":
-            return LR0Recognizer(grammar, source, table).recognizes()
+            return LR0Recognizer(grammar, source).recognizes()
         case "dfs":
-            return DFSTopDownLeftmostRecognizer(grammar, source, table).recognizes()
+            return DFSTopDownLeftmostRecognizer(grammar, source).recognizes()
         case "llk":
-            return LLKRecognizer(grammar, source, table).recognizes()
+            return LLKRecognizer(grammar, source).recognizes()
         case "cyk":
-            return CYKRecognizer(grammar, source, table).recognizes()
+            return CYKRecognizer(grammar, source).recognizes()
 
         case _:
             raise ValueError(f"Unknown recognizer {recognizer}")
@@ -271,7 +268,6 @@ if __name__ == "__main__":
 
     from utils.grammars import GRAMMAR_JSON
 
-    g = Grammar.from_str(*GRAMMAR_JSON)
-    rich_print(
-        pretty_repr(recognize(g, "[1, 2, 4]", GRAMMAR_JSON[1], recognizer="llk"))
-    )
+    g = Grammar.from_str(GRAMMAR_JSON, transform_regex_to_right=True)
+    rich_print(pretty_repr(g))
+    rich_print(pretty_repr(recognize(g, "[1, 2, 4, 5]", recognizer="llk")))

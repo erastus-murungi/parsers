@@ -6,7 +6,6 @@ from more_itertools import one
 
 from grammar import EMPTY, EOF, Expansion, Grammar, NonTerminal, Symbol, Terminal
 from parsers.parser import ParseTree
-from tokenizer import Tokenizer
 from utils.dot import draw_tree
 from utils.grammars import GRAMMAR3
 
@@ -66,14 +65,13 @@ def to_cnf_with_unit_productions(grammar: Grammar) -> Grammar:
                 case _:
                     raise RuntimeError(f"invalid expansion {expansion}")
 
-    return finished.build()
+    return finished.build(grammar.tokenizer)
 
 
 def yield_trees(
-    cnf_grammar: Grammar,
-    pointers: PointerTable,
-    words: list[Terminal],
+    cnf_grammar: Grammar, pointers: PointerTable, source: str
 ) -> Iterator[ParseTree]:
+    words = cnf_grammar.tokenizer.get_tokens_no_whitespace(source)
     assert EOF.matches(words[-1])
 
     def yield_trees_impl(current: NonTerminal, span: Span) -> Iterator[ParseTree]:
@@ -101,11 +99,12 @@ def yield_trees(
 
 
 def cyk_parse(
-    grammar: Grammar, words: list[Terminal]
+    grammar: Grammar, source: str
 ) -> tuple[Grammar, CYKResultsTable, PointerTable]:
     table: CYKResultsTable = defaultdict(set[NonTerminal])
     pointers: PointerTable = defaultdict(lambda: defaultdict(set[Pointer]))
     cnf_grammar: Grammar = to_cnf_with_unit_productions(grammar)
+    words = grammar.tokenizer.get_tokens_no_whitespace(source)
 
     reversed_grammar = defaultdict(set)
     for root, expansions in cnf_grammar.items():
@@ -173,18 +172,14 @@ if __name__ == "__main__":
     from rich import print as rprint
     from rich.pretty import pretty_repr
 
-    g = Grammar.from_str(*GRAMMAR3)
+    g = Grammar.from_str(GRAMMAR3)
     rprint(pretty_repr(g))
-    print()
-    tks = Tokenizer("book the flight through Houston", {}).get_tokens_no_whitespace()
 
-    rprint(pretty_repr(tks))
-
-    cnf_g, tab, sp = cyk_parse(g, tks)
+    cnf_g, tab, sp = cyk_parse(g, "book the flight through Houston")
     rprint(pretty_repr(tab))
     rprint(pretty_repr(sp))
     # rprint(pretty_repr(list(yield_trees(cg.start, split, tab, tks))))
-    for i, t in enumerate(yield_trees(cnf_g, sp, tks)):
+    for i, t in enumerate(yield_trees(cnf_g, sp, "book the flight through Houston")):
         draw_tree(revert_cnf(t), f"tree_cyk_{i}.pdf")
 
     # print(len(list(yield_trees(cnf_g, g.start, sp, tab, tks))))

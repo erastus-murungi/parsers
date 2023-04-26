@@ -6,7 +6,7 @@ from more_itertools import one
 from rich.traceback import install
 
 from earley import EarleyItem, gen_earley_sets
-from grammar import EMPTY, EOF, Grammar, NonTerminal, Symbol, Terminal
+from grammar import EMPTY, EOF, Grammar, NonTerminal, Terminal
 from ll import LL1ParsingTable
 from lr import (
     Accept,
@@ -19,7 +19,6 @@ from lr import (
     Shift,
     SLRParsingTable,
 )
-from tokenizer.tokenizer import Tokenizer
 
 install(show_locals=False)
 
@@ -50,10 +49,10 @@ class ParseTree(NamedTuple):
 
 
 class Parser(ABC):
-    def __init__(self, grammar: Grammar, source: str, table: dict):
+    def __init__(self, grammar: Grammar, source: str):
         self.grammar = grammar
         self.source = source
-        self.tokens = Tokenizer(source, table).get_tokens_no_whitespace()
+        self.tokens = grammar.tokenizer.get_tokens_no_whitespace(source)
 
     @abstractmethod
     def parse(
