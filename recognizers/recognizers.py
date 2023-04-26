@@ -101,7 +101,7 @@ class DFSTopDownLeftmostRecognizer(Recognizer):
 class LL1Recognizer(Recognizer):
     def recognizes(self) -> bool:
         parsing_table = LL1ParsingTable(self.grammar)
-        stack, token_index = [EOF, self.grammar.start], 0
+        stack, token_index = [EOF, self.grammar.orig_start], 0
 
         while stack:
             symbol = stack.pop()

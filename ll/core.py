@@ -1,5 +1,5 @@
 from itertools import islice
-from typing import Iterable, Iterator, MutableSet, Self, Type, cast
+from typing import Iterable, Iterator, MutableSet, Self
 
 from more_itertools import partition
 
@@ -66,11 +66,21 @@ class TerminalString(tuple[Terminal]):
 
 
 class TerminalStrings(MutableSet[TerminalString]):
+    k: int
+
     def __init__(self, items: Iterable[TerminalString], k: int):
         self._items: set[TerminalString] = set()
         self.k = k
         for item in items:
             self.add(item)
+
+    @staticmethod
+    def intersection(*args: tuple["TerminalStrings", ...]):
+        assert args
+        assert all(isinstance(ts, TerminalStrings) for ts in args)
+        first = args[0]
+        assert all(ts.k == first.k for ts in args)
+        return TerminalStrings(set.intersection(*(ts._items for ts in args)), first.k)
 
     @staticmethod
     def of(terminal_string: TerminalString, k: int):

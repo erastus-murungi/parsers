@@ -254,9 +254,24 @@ DECAF_GRAMMAR = (
     },
 )
 
-GRAMMAR_LL3 = (
+GRAMMAR_LL1 = (
     """
-        <S> -> 'b''b'<C>'d' | <B>'c''c'
+        <S> -> 'a' <B> 'd'
+        <B> -> 'c' <C> | 'e'
+        <C> -> 'a' <B> | 'b' <B> | 
+    """,
+    {
+        "a": "a",
+        "b": "b",
+        "c": "c",
+        "d": "d",
+        "e": "e",
+    },
+)
+
+GRAMMAR_LL5 = (
+    """
+        <S> -> 'b''b'<C>'d' | <B> 'c''c'
         <B> -> 'b'<B> | 'b'
         <C> -> 'c'<C> | 'c'
     """,

@@ -116,7 +116,7 @@ if __name__ == "__main__":
     from rich import print as rich_print
     from rich.pretty import pretty_repr
 
-    from utils.grammars import GRAMMAR1
+    from utils.grammars import GRAMMAR_LL5
 
-    g = Grammar.from_str(*GRAMMAR1)
-    rich_print(pretty_repr(first_k(g, 9)))
+    g = Grammar.from_str(*GRAMMAR_LL5)
+    rich_print(pretty_repr(first_k(g, 5)))
