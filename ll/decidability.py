@@ -20,6 +20,7 @@ def is_decidable(
 
     :return: the number of lookahead symbols needed to decide the non-terminal if it is decidable, else None
     """
+
     assert max_k >= 1, "max_k must be at least 1"
 
     expansions = grammar[non_terminal]
@@ -32,10 +33,11 @@ def is_decidable(
 
     for k in range(1, max_k + 1):
         first_set = first_k(grammar, k)
-        _, follow_set = follow_k(grammar, k)
-        follow_A = follow_set[non_terminal]
+        follow_set = follow_k(grammar, k)[1]
+
+        follow_nt = follow_set[non_terminal]
         if not TerminalSequenceSet.intersection(
-            (first_set[expansion].k_concat(follow_A, k) for expansion in expansions)
+            (first_set[expansion].k_concat(follow_nt, k) for expansion in expansions)
         ):
             return k
     return None
@@ -62,7 +64,7 @@ if __name__ == "__main__":
     from rich import print as rich_print
     from rich.pretty import pretty_repr
 
-    from utils.grammars import GRAMMAR_LL5
+    from utils.grammars import GRAMMAR_JSON
 
-    g = Grammar.from_str(*GRAMMAR_LL5)
+    g = Grammar.from_str(*GRAMMAR_JSON)
     rich_print(pretty_repr(compute_k(g)))

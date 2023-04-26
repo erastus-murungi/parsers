@@ -171,7 +171,6 @@ GRAMMAR3 = (
     {"(": ")"},
 )
 
-
 DECAF_GRAMMAR = (
     """
         <program> ->  <import_decl>* <field_decl>* <method_decl>*
@@ -279,5 +278,40 @@ GRAMMAR_LL5 = (
         "b": "b",
         "c": "c",
         "d": "d",
+    },
+)
+
+GRAMMAR_JSON = (
+    """
+        <Json> -> <Value>
+        <Object> -> '{' <Pair> ( ',' <Pair> )* '}' | '{' '}'
+
+        <Pair>  -> <String> ':' <Value>
+
+        <Array> -> '[' <Value> ( ',' <Value> )* ']'
+         | '[' ']'
+
+        <Value>   -> <String>
+         | <Number>
+         | <Object>
+         | <Array>
+         | 'true'
+         | 'false'
+         | 'null'
+
+        <String> -> word
+
+        <Number> -> float | integer
+    """,
+    {
+        "{": "{",
+        "}": "}",
+        "[": "[",
+        "]": "]",
+        ":": ":",
+        ",": ",",
+        "true": "true",
+        "false": "false",
+        "null": "null",
     },
 )

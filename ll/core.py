@@ -1,5 +1,5 @@
 from itertools import islice
-from typing import Iterable, Iterator, MutableSet, Self
+from typing import Iterable
 
 from more_itertools import partition
 
@@ -18,11 +18,11 @@ def k_length(terminals: Iterable[Terminal], k: int) -> int:
     return k_len
 
 
-class TerminalsSequence(tuple[Terminal]):
+class TerminalSequence(tuple[Terminal]):
     k: int
 
     def __new__(cls, terminals: Iterable[Terminal], k: int):
-        self = tuple.__new__(TerminalsSequence, islice(terminals, k))  # type: ignore
+        self = tuple.__new__(TerminalSequence, islice(terminals, k))  # type: ignore
         self.k = k
         return self
 
@@ -31,17 +31,17 @@ class TerminalsSequence(tuple[Terminal]):
 
     @staticmethod
     def eps():
-        return TerminalsSequence([EMPTY], 1)
+        return TerminalSequence([EMPTY], 1)
 
     @staticmethod
     def eof():
-        return TerminalsSequence([EOF], 1)
+        return TerminalSequence([EOF], 1)
 
     def is_eps(self):
         return len(self) == 1 and self[0] is EMPTY
 
     # Concatenates two collections with respect to the rules of k-concatenation
-    def k_concat(self, other: "TerminalsSequence", k: int) -> "TerminalsSequence":
+    def k_concat(self, other: "TerminalSequence", k: int) -> "TerminalSequence":
         if other.is_eps():
             # w + ε = w
             return self
@@ -54,22 +54,23 @@ class TerminalsSequence(tuple[Terminal]):
 
         if self.is_complete(k):
             # k: w would be the same as k: (w + x)
-            return TerminalsSequence(terminals, k)
+            return TerminalSequence(terminals, k)
 
         my_k_len = k_length(terminals, k)
         to_take = k_length(other, k - my_k_len)
         terminals.extend(other[:to_take])
-        return TerminalsSequence(terminals, k)
+        return TerminalSequence(terminals, k)
 
     def __repr__(self):
         return "".join(repr(item) for item in self)
 
+    def __str__(self):
+        return "".join(str(item) for item in self)
 
-class TerminalSequenceSet(MutableSet[TerminalsSequence]):
-    k: int
 
-    def __init__(self, items: Iterable[TerminalsSequence], k: int):
-        self._items: set[TerminalsSequence] = set()
+class TerminalSequenceSet(set[TerminalSequence]):
+    def __init__(self, items: Iterable[TerminalSequence], k: int):
+        super().__init__()
         self.k = k
         for item in items:
             self.add(item)
@@ -84,22 +85,22 @@ class TerminalSequenceSet(MutableSet[TerminalsSequence]):
             for ts_set in ts_sets
         )
         return TerminalSequenceSet(
-            set.intersection(*(ts_set._items for ts_set in ts_sets)), first.k
+            set.intersection(*(ts_set for ts_set in ts_sets)), first.k
         )
 
     @staticmethod
-    def of(terminal_string: TerminalsSequence, k: int):
+    def of(terminal_string: TerminalSequence, k: int):
         return TerminalSequenceSet([terminal_string], k)
 
     @staticmethod
     def eps(k):
         assert k >= 1
-        return TerminalSequenceSet([TerminalsSequence.eps()], k)
+        return TerminalSequenceSet([TerminalSequence.eps()], k)
 
     @staticmethod
     def eof(k):
         assert k >= 1
-        return TerminalSequenceSet([TerminalsSequence.eof()], k)
+        return TerminalSequenceSet([TerminalSequence.eof()], k)
 
     @staticmethod
     def empty(k):
@@ -108,31 +109,32 @@ class TerminalSequenceSet(MutableSet[TerminalsSequence]):
 
     def increment_k(self, k: int) -> "TerminalSequenceSet":
         assert k >= self.k
-        return TerminalSequenceSet(self._items, k)
+        return TerminalSequenceSet(self, k)
 
     def is_complete(self):
         return all(item.is_complete(self.k) for item in self)
 
-    def k_concat(self, value: "TerminalSequenceSet", k) -> Self:
+    def k_concat(self, other_ts_set: "TerminalSequenceSet", k) -> "TerminalSequenceSet":
         if not self.is_complete():
             incomplete, complete = partition(lambda x: x.is_complete(k), self)
-            self._items = set(complete)
-            for terminal_string in incomplete:
-                for other in value:
-                    self.add(terminal_string.k_concat(other, k))
+            ts_set = TerminalSequenceSet(complete, k)
+            for ts in incomplete:
+                for other_ts in other_ts_set:
+                    ts_set.add(ts.k_concat(other_ts, k))
+            return ts_set
         return self
 
-    def add(self, value: TerminalsSequence) -> None:
-        if not isinstance(value, TerminalsSequence):
+    def add(self, value: TerminalSequence) -> None:
+        if not isinstance(value, TerminalSequence):
             raise TypeError(f"Expected TerminalString, got {value}")
         assert value.k <= self.k
-        self._items.add(value)
+        super().add(value)
 
     def union(self, values: "TerminalSequenceSet") -> "TerminalSequenceSet":
         if not isinstance(values, TerminalSequenceSet):
             raise TypeError(f"Expected TerminalStrings, got {values}")
         assert (value.k <= self.k for value in values)
-        return TerminalSequenceSet(self._items | values._items, self.k)
+        return TerminalSequenceSet(self | values, self.k)
 
     def __or__(self, other):
         if not isinstance(other, TerminalSequenceSet):
@@ -140,17 +142,8 @@ class TerminalSequenceSet(MutableSet[TerminalsSequence]):
         assert other.k <= self.k
         return self.union(other)
 
-    def discard(self, value: TerminalsSequence) -> None:
+    def discard(self, value: TerminalSequence) -> None:
         raise NotImplementedError
-
-    def __contains__(self, x: object) -> bool:
-        return x in self._items
-
-    def __len__(self) -> int:
-        return len(self._items)
-
-    def __iter__(self) -> Iterator[TerminalsSequence]:
-        return iter(self._items)
 
     def __repr__(self):
         return "{" + ", ".join(repr(item) for item in self) + "}k:" + str(self.k)
@@ -159,5 +152,5 @@ class TerminalSequenceSet(MutableSet[TerminalsSequence]):
         if not isinstance(other, TerminalSequenceSet):
             raise TypeError(f"Expected TerminalStrings, got {other}")
         assert other.k <= self.k
-        self._items |= other._items
+        self.update(other)
         return self

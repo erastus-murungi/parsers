@@ -5,8 +5,10 @@ from typing import Callable, NamedTuple, cast
 from more_itertools import split_at
 
 from grammar import Expansion, Grammar, NonTerminal, Terminal
-from ll.core import TerminalsSequence, TerminalSequenceSet
+from ll.core import TerminalSequence, TerminalSequenceSet
 from ll.first_k import FirstSet, first_k
+
+MAX_ITERATIONS = 1000
 
 
 class UniqueNonTerminalIdentifier(NamedTuple):
@@ -50,7 +52,7 @@ def get_init_result_function(k: int) -> ResultFunction:
 def get_terminal_result_function(
     result_function: ResultFunction, terminals: tuple[Terminal, ...], k: int
 ) -> ResultFunction:
-    terminal_strings = TerminalSequenceSet.of(TerminalsSequence(terminals, k), k)
+    terminal_strings = TerminalSequenceSet.of(TerminalSequence(terminals, k), k)
     return lambda result_map, follow_set: result_function(
         result_map, follow_set
     ).k_concat(terminal_strings, k)
@@ -151,15 +153,15 @@ def follow_k(grammar: Grammar, k: int) -> tuple[ResultMap, FollowSet]:
 
     step_function = get_step_function()
 
-    iterations = 1
-    while True:
+    iterations = 0
+    while iterations <= MAX_ITERATIONS:
         new_result_map = step_function(equation_system, result_map, follow_set)
         if new_result_map == result_map:
-            break
+            return result_map, follow_set
         result_map = new_result_map
         iterations += 1
 
-    return result_map, follow_set
+    raise RuntimeError("Maximum number of iterations reached")
 
 
 if __name__ == "__main__":

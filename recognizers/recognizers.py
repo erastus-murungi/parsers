@@ -5,6 +5,8 @@ from typing import Literal, cast
 from earley import gen_earley_sets
 from grammar import EMPTY, EOF, Expansion, Grammar, NonTerminal, Terminal
 from ll import LL1ParsingTable
+from ll.core import TerminalSequence
+from ll.llk import LLKParsingTable
 from lr import (
     Accept,
     Goto,
@@ -126,6 +128,49 @@ class LL1Recognizer(Recognizer):
         return True
 
 
+class LLKRecognizer(Recognizer):
+    def recognizes(self) -> bool:
+        parsing_table = LLKParsingTable(self.grammar)
+        stack, token_index = [EOF, self.grammar.orig_start], 0
+
+        while stack:
+            symbol = stack.pop()
+            token = self.tokens[token_index]
+            if isinstance(symbol, Terminal):
+                if symbol.matches(token):
+                    token_index += symbol is not EMPTY
+                else:
+                    raise SyntaxError(f"Expected {symbol.name} but got {token}")
+            else:
+                # choose a rule depending on the next k tokens
+                non_terminal = cast(NonTerminal, symbol)
+                if (
+                    rule := parsing_table.choose_rule(
+                        non_terminal, token_index, self.tokens
+                    )
+                ) is not None:
+                    stack.extend(reversed(rule))
+                else:
+                    TAB = "\n\t\t"
+                    found = [
+                        str(
+                            TerminalSequence(
+                                self.tokens[token_index : token_index + i], i
+                            )
+                        )
+                        for i in range(1, parsing_table.k + 1)
+                    ]
+                    raise SyntaxError(
+                        f"At position {token.loc}, "
+                        f"was parsing {symbol!s} "
+                        f"expecting one of :\n"
+                        f"\t\t{parsing_table.get_expected(non_terminal)}\n"
+                        f"but found {found!s}"
+                    )
+        assert token_index >= len(self.tokens)
+        return True
+
+
 class EarleyRecognizer(Recognizer):
     def recognizes(self) -> bool:
         gen_earley_sets(self.grammar, self.tokens, self.source)
@@ -192,7 +237,9 @@ def recognize(
     source: str,
     table: dict,
     *,
-    recognizer: Literal["earley", "lalr1", "ll1", "slr", "lr1", "lr0", "dfs"],
+    recognizer: Literal[
+        "earley", "lalr1", "ll1", "slr", "lr1", "lr0", "dfs", "llk", "cyk"
+    ],
 ) -> bool:
     match recognizer:
         case "earley":
@@ -209,61 +256,22 @@ def recognize(
             return LR0Recognizer(grammar, source, table).recognizes()
         case "dfs":
             return DFSTopDownLeftmostRecognizer(grammar, source, table).recognizes()
+        case "llk":
+            return LLKRecognizer(grammar, source, table).recognizes()
+        case "cyk":
+            return CYKRecognizer(grammar, source, table).recognizes()
+
         case _:
             raise ValueError(f"Unknown recognizer {recognizer}")
 
 
 if __name__ == "__main__":
-    pass
+    from rich import print as rich_print
+    from rich.pretty import pretty_repr
 
-    # table = {
-    #     "x": "x",
-    #     "(": "(",
-    #     ")": ")",
-    #     ",": ",",
-    # }
-    # g = """
-    #         <S'>
-    #         <S'> -> <S>
-    #         <S> -> (<L>)
-    #         <L> -> <S>
-    #         <S> -> x
-    #         <L> -> <L>,<S>
-    # """
-    # table = {
-    #     "a": "a",
-    #     "b": "b",
-    #     "c": "c",
-    #     "d": "d",
-    # }
-    #
-    # g = """
-    # <S'>
-    # <S'> -> <S>
-    # <S> -> a <A> d | b <B> d | a <B> e | b <A> e
-    # <A> -> c
-    # <B> -> c
-    # """
-    #
-    # g = """
-    #     <S>
-    #     <S> -> <E>
-    #     <E> -> <T> | <T> + <E>
-    #     <T> -> (<E>) | integer
-    # """
-    # table = {
-    #     "+": "+",
-    #     ";": ";",
-    #     "(": "(",
-    #     ")": ")",
-    #     "=": "=",
-    #     "*": "*",
-    # }
-    #
-    # g = """
-    #     <S>
-    #     <S> -> <E>
-    #     <E> -> <L> = <R> | <R>
-    #     <L> -> char | *<R>
-    #     <R> -> <L>
-    # """
+    from utils.grammars import GRAMMAR_JSON
+
+    g = Grammar.from_str(*GRAMMAR_JSON)
+    rich_print(
+        pretty_repr(recognize(g, "[1, 2, 4]", GRAMMAR_JSON[1], recognizer="llk"))
+    )

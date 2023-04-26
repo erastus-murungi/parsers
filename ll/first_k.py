@@ -3,13 +3,11 @@ from functools import cache
 from typing import Callable, cast
 
 from more_itertools import split_at
-from rich.traceback import install
 
 from grammar import Expansion, Grammar, NonTerminal, Terminal
-from ll.core import TerminalsSequence, TerminalSequenceSet
+from ll.core import TerminalSequence, TerminalSequenceSet
 
-install()
-
+MAX_ITERATIONS = 1000
 
 FirstSet = dict[NonTerminal | Expansion, TerminalSequenceSet]
 TransferFunction = Callable[[FirstSet], TerminalSequenceSet]
@@ -24,7 +22,7 @@ def get_init_result_function(k: int) -> ResultFunction:
 def get_terminal_result_function(
     result_function: ResultFunction, terminals: tuple[Terminal, ...], k: int
 ) -> ResultFunction:
-    terminal_strings = TerminalSequenceSet.of(TerminalsSequence(terminals, k), k)
+    terminal_strings = TerminalSequenceSet.of(TerminalSequence(terminals, k), k)
     return lambda result_vector: result_function(result_vector).k_concat(
         terminal_strings, k
     )
@@ -102,21 +100,21 @@ def first_k(grammar: Grammar, k: int) -> FirstSet:
     step_function = get_step_function(k, grammar)
 
     iterations = 0
-    while True:
+    while iterations <= MAX_ITERATIONS:
         new_result_vector = step_function(equation_system, result_vector)
         if new_result_vector == result_vector:
-            break
+            return dict(result_vector)
         result_vector = new_result_vector
         iterations += 1
 
-    return dict(result_vector)
+    raise RuntimeError("Maximum number of iterations reached")
 
 
 if __name__ == "__main__":
     from rich import print as rich_print
     from rich.pretty import pretty_repr
 
-    from utils.grammars import GRAMMAR_LL5
+    from utils.grammars import GRAMMAR_JSON
 
-    g = Grammar.from_str(*GRAMMAR_LL5)
-    rich_print(pretty_repr(first_k(g, 5)))
+    g = Grammar.from_str(*GRAMMAR_JSON)
+    rich_print(pretty_repr(first_k(g, 2)))
