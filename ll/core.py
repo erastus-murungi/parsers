@@ -75,12 +75,17 @@ class TerminalSequenceSet(MutableSet[TerminalsSequence]):
             self.add(item)
 
     @staticmethod
-    def intersection(*args: tuple["TerminalSequenceSet", ...]):
-        assert args
-        assert all(isinstance(ts, TerminalSequenceSet) for ts in args)
-        first = args[0]
-        assert all(ts.k == first.k for ts in args)
-        return TerminalSequenceSet(set.intersection(*(ts._items for ts in args)), first.k)
+    def intersection(iterable: Iterable["TerminalSequenceSet"]):
+        ts_sets = tuple(iterable)
+        assert ts_sets
+        first = ts_sets[0]
+        assert all(
+            isinstance(ts_set, TerminalSequenceSet) and ts_set.k == first.k
+            for ts_set in ts_sets
+        )
+        return TerminalSequenceSet(
+            set.intersection(*(ts_set._items for ts_set in ts_sets)), first.k
+        )
 
     @staticmethod
     def of(terminal_string: TerminalsSequence, k: int):

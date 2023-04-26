@@ -135,13 +135,16 @@ def follow_k(grammar: Grammar, k: int) -> tuple[ResultMap, FollowSet]:
     )
 
     follow_set: FollowSet = {
-        non_terminal: TerminalSequenceSet.empty(k) for non_terminal in grammar.non_terminals
+        non_terminal: TerminalSequenceSet.empty(k)
+        for non_terminal in grammar.non_terminals
     }
     follow_set[grammar.start] = TerminalSequenceSet.eof(k)
 
     result_map: ResultMap
     if k <= 1:
-        result_map = {pos: TerminalSequenceSet.empty(k) for pos in equation_system.keys()}
+        result_map = {
+            pos: TerminalSequenceSet.empty(k) for pos in equation_system.keys()
+        }
     else:
         prev = follow_k(grammar, k - 1)[0]
         result_map = {key: rhs.increment_k(k) for key, rhs in prev.items()}
