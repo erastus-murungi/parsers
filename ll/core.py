@@ -65,7 +65,7 @@ class TerminalsSequence(tuple[Terminal]):
         return "".join(repr(item) for item in self)
 
 
-class TerminalStrings(MutableSet[TerminalsSequence]):
+class TerminalSequenceSet(MutableSet[TerminalsSequence]):
     k: int
 
     def __init__(self, items: Iterable[TerminalsSequence], k: int):
@@ -75,40 +75,40 @@ class TerminalStrings(MutableSet[TerminalsSequence]):
             self.add(item)
 
     @staticmethod
-    def intersection(*args: tuple["TerminalStrings", ...]):
+    def intersection(*args: tuple["TerminalSequenceSet", ...]):
         assert args
-        assert all(isinstance(ts, TerminalStrings) for ts in args)
+        assert all(isinstance(ts, TerminalSequenceSet) for ts in args)
         first = args[0]
         assert all(ts.k == first.k for ts in args)
-        return TerminalStrings(set.intersection(*(ts._items for ts in args)), first.k)
+        return TerminalSequenceSet(set.intersection(*(ts._items for ts in args)), first.k)
 
     @staticmethod
     def of(terminal_string: TerminalsSequence, k: int):
-        return TerminalStrings([terminal_string], k)
+        return TerminalSequenceSet([terminal_string], k)
 
     @staticmethod
     def eps(k):
         assert k >= 1
-        return TerminalStrings([TerminalsSequence.eps()], k)
+        return TerminalSequenceSet([TerminalsSequence.eps()], k)
 
     @staticmethod
     def eof(k):
         assert k >= 1
-        return TerminalStrings([TerminalsSequence.eof()], k)
+        return TerminalSequenceSet([TerminalsSequence.eof()], k)
 
     @staticmethod
     def empty(k):
         assert k >= 0
-        return TerminalStrings([], k)
+        return TerminalSequenceSet([], k)
 
-    def increment_k(self, k: int) -> "TerminalStrings":
+    def increment_k(self, k: int) -> "TerminalSequenceSet":
         assert k >= self.k
-        return TerminalStrings(self._items, k)
+        return TerminalSequenceSet(self._items, k)
 
     def is_complete(self):
         return all(item.is_complete(self.k) for item in self)
 
-    def k_concat(self, value: "TerminalStrings", k) -> Self:
+    def k_concat(self, value: "TerminalSequenceSet", k) -> Self:
         if not self.is_complete():
             incomplete, complete = partition(lambda x: x.is_complete(k), self)
             self._items = set(complete)
@@ -123,14 +123,14 @@ class TerminalStrings(MutableSet[TerminalsSequence]):
         assert value.k <= self.k
         self._items.add(value)
 
-    def union(self, values: "TerminalStrings") -> "TerminalStrings":
-        if not isinstance(values, TerminalStrings):
+    def union(self, values: "TerminalSequenceSet") -> "TerminalSequenceSet":
+        if not isinstance(values, TerminalSequenceSet):
             raise TypeError(f"Expected TerminalStrings, got {values}")
         assert (value.k <= self.k for value in values)
-        return TerminalStrings(self._items | values._items, self.k)
+        return TerminalSequenceSet(self._items | values._items, self.k)
 
     def __or__(self, other):
-        if not isinstance(other, TerminalStrings):
+        if not isinstance(other, TerminalSequenceSet):
             raise TypeError(f"Expected TerminalStrings, got {other}")
         assert other.k <= self.k
         return self.union(other)
@@ -151,7 +151,7 @@ class TerminalStrings(MutableSet[TerminalsSequence]):
         return "{" + ", ".join(repr(item) for item in self) + "}k:" + str(self.k)
 
     def __ior__(self, other):
-        if not isinstance(other, TerminalStrings):
+        if not isinstance(other, TerminalSequenceSet):
             raise TypeError(f"Expected TerminalStrings, got {other}")
         assert other.k <= self.k
         self._items |= other._items

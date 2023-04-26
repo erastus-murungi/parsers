@@ -5,7 +5,7 @@ from typing import Callable, NamedTuple, cast
 from more_itertools import split_at
 
 from grammar import Expansion, Grammar, NonTerminal, Terminal
-from ll.core import TerminalsSequence, TerminalStrings
+from ll.core import TerminalsSequence, TerminalSequenceSet
 from ll.first_k import FirstSet, first_k
 
 
@@ -22,11 +22,11 @@ class UniqueNonTerminalIdentifier(NamedTuple):
     position: int
 
 
-ResultMap = dict[UniqueNonTerminalIdentifier, TerminalStrings]
-FollowSet = dict[NonTerminal, TerminalStrings]
-TransferFunction = Callable[[ResultMap, FollowSet], TerminalStrings]
+ResultMap = dict[UniqueNonTerminalIdentifier, TerminalSequenceSet]
+FollowSet = dict[NonTerminal, TerminalSequenceSet]
+TransferFunction = Callable[[ResultMap, FollowSet], TerminalSequenceSet]
 EquationSystem = dict[UniqueNonTerminalIdentifier, TransferFunction]
-ResultFunction = Callable[[ResultMap, FollowSet], TerminalStrings]
+ResultFunction = Callable[[ResultMap, FollowSet], TerminalSequenceSet]
 
 
 def get_step_function() -> Callable[[EquationSystem, ResultMap, FollowSet], ResultMap]:
@@ -44,13 +44,13 @@ def get_step_function() -> Callable[[EquationSystem, ResultMap, FollowSet], Resu
 
 
 def get_init_result_function(k: int) -> ResultFunction:
-    return lambda result_map, follow_set: TerminalStrings.eps(k)
+    return lambda result_map, follow_set: TerminalSequenceSet.eps(k)
 
 
 def get_terminal_result_function(
     result_function: ResultFunction, terminals: tuple[Terminal, ...], k: int
 ) -> ResultFunction:
-    terminal_strings = TerminalStrings.of(TerminalsSequence(terminals, k), k)
+    terminal_strings = TerminalSequenceSet.of(TerminalsSequence(terminals, k), k)
     return lambda result_map, follow_set: result_function(
         result_map, follow_set
     ).k_concat(terminal_strings, k)
@@ -66,7 +66,7 @@ def get_non_terminal_result_function(
 
     def updated_result_function(
         result_map: ResultMap, follow_set: FollowSet
-    ) -> TerminalStrings:
+    ) -> TerminalSequenceSet:
         return result_function(result_map, follow_set).k_concat(first_nt, k)
 
     return updated_result_function
@@ -135,13 +135,13 @@ def follow_k(grammar: Grammar, k: int) -> tuple[ResultMap, FollowSet]:
     )
 
     follow_set: FollowSet = {
-        non_terminal: TerminalStrings.empty(k) for non_terminal in grammar.non_terminals
+        non_terminal: TerminalSequenceSet.empty(k) for non_terminal in grammar.non_terminals
     }
-    follow_set[grammar.start] = TerminalStrings.eof(k)
+    follow_set[grammar.start] = TerminalSequenceSet.eof(k)
 
     result_map: ResultMap
     if k <= 1:
-        result_map = {pos: TerminalStrings.empty(k) for pos in equation_system.keys()}
+        result_map = {pos: TerminalSequenceSet.empty(k) for pos in equation_system.keys()}
     else:
         prev = follow_k(grammar, k - 1)[0]
         result_map = {key: rhs.increment_k(k) for key, rhs in prev.items()}

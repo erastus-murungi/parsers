@@ -6,25 +6,25 @@ from more_itertools import split_at
 from rich.traceback import install
 
 from grammar import Expansion, Grammar, NonTerminal, Terminal
-from ll.core import TerminalsSequence, TerminalStrings
+from ll.core import TerminalsSequence, TerminalSequenceSet
 
 install()
 
 
-FirstSet = dict[NonTerminal | Expansion, TerminalStrings]
-TransferFunction = Callable[[FirstSet], TerminalStrings]
+FirstSet = dict[NonTerminal | Expansion, TerminalSequenceSet]
+TransferFunction = Callable[[FirstSet], TerminalSequenceSet]
 EquationSystem = dict[Expansion, TransferFunction]
-ResultFunction = Callable[[FirstSet], TerminalStrings]
+ResultFunction = Callable[[FirstSet], TerminalSequenceSet]
 
 
 def get_init_result_function(k: int) -> ResultFunction:
-    return lambda result_vector: TerminalStrings.eps(k)
+    return lambda result_vector: TerminalSequenceSet.eps(k)
 
 
 def get_terminal_result_function(
     result_function: ResultFunction, terminals: tuple[Terminal, ...], k: int
 ) -> ResultFunction:
-    terminal_strings = TerminalStrings.of(TerminalsSequence(terminals, k), k)
+    terminal_strings = TerminalSequenceSet.of(TerminalsSequence(terminals, k), k)
     return lambda result_vector: result_function(result_vector).k_concat(
         terminal_strings, k
     )
@@ -33,7 +33,7 @@ def get_terminal_result_function(
 def get_non_terminal_result_function(
     result_function: ResultFunction, non_terminal: NonTerminal, k: int
 ) -> ResultFunction:
-    def f(result_vector: FirstSet) -> TerminalStrings:
+    def f(result_vector: FirstSet) -> TerminalSequenceSet:
         r = result_vector[non_terminal]
         return result_function(result_vector).k_concat(r, k)
 
@@ -69,7 +69,7 @@ def get_step_function(
     def step_function(
         equation_system: EquationSystem, result_vector: FirstSet
     ) -> FirstSet:
-        new_result_vector: FirstSet = defaultdict(lambda: TerminalStrings.empty(k))
+        new_result_vector: FirstSet = defaultdict(lambda: TerminalSequenceSet.empty(k))
         for origin, expansion in grammar.iter_productions():
             r = equation_system[expansion](result_vector)
             new_result_vector[expansion] = r
@@ -90,9 +90,9 @@ def first_k(grammar: Grammar, k: int) -> FirstSet:
     if k <= 1:
         result_vector = {}
         for origin, expansions in grammar.items():
-            result_vector[origin] = TerminalStrings.eps(k)
+            result_vector[origin] = TerminalSequenceSet.eps(k)
             for expansion in expansions:
-                result_vector[expansion] = TerminalStrings.empty(k)
+                result_vector[expansion] = TerminalSequenceSet.empty(k)
 
     else:
         result_vector = {

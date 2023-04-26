@@ -2,7 +2,7 @@ from itertools import takewhile
 from typing import Optional
 
 from grammar import Grammar, NonTerminal
-from ll.core import TerminalStrings
+from ll.core import TerminalSequenceSet
 from ll.first_k import first_k
 from ll.follow_k import follow_k
 
@@ -34,7 +34,7 @@ def is_decidable(
         first_set = first_k(grammar, k)
         _, follow_set = follow_k(grammar, k)
         follow_A = follow_set[non_terminal]
-        if not TerminalStrings.intersection(
+        if not TerminalSequenceSet.intersection(
             *(first_set[expansion].k_concat(follow_A, k) for expansion in expansions)
         ):
             return k
