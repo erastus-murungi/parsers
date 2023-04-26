@@ -5,7 +5,7 @@ from typing import Callable, NamedTuple, cast
 from more_itertools import split_at
 
 from grammar import Expansion, Grammar, NonTerminal, Terminal
-from ll.core import TerminalString, TerminalStrings
+from ll.core import TerminalsSequence, TerminalStrings
 from ll.first_k import FirstSet, first_k
 
 
@@ -50,7 +50,7 @@ def get_init_result_function(k: int) -> ResultFunction:
 def get_terminal_result_function(
     result_function: ResultFunction, terminals: tuple[Terminal, ...], k: int
 ) -> ResultFunction:
-    terminal_strings = TerminalStrings.of(TerminalString(terminals, k), k)
+    terminal_strings = TerminalStrings.of(TerminalsSequence(terminals, k), k)
     return lambda result_map, follow_set: result_function(
         result_map, follow_set
     ).k_concat(terminal_strings, k)

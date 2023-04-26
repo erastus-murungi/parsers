@@ -18,11 +18,11 @@ def k_length(terminals: Iterable[Terminal], k: int) -> int:
     return k_len
 
 
-class TerminalString(tuple[Terminal]):
+class TerminalsSequence(tuple[Terminal]):
     k: int
 
     def __new__(cls, terminals: Iterable[Terminal], k: int):
-        self = tuple.__new__(TerminalString, islice(terminals, k))  # type: ignore
+        self = tuple.__new__(TerminalsSequence, islice(terminals, k))  # type: ignore
         self.k = k
         return self
 
@@ -31,17 +31,17 @@ class TerminalString(tuple[Terminal]):
 
     @staticmethod
     def eps():
-        return TerminalString([EMPTY], 1)
+        return TerminalsSequence([EMPTY], 1)
 
     @staticmethod
     def eof():
-        return TerminalString([EOF], 1)
+        return TerminalsSequence([EOF], 1)
 
     def is_eps(self):
         return len(self) == 1 and self[0] is EMPTY
 
     # Concatenates two collections with respect to the rules of k-concatenation
-    def k_concat(self, other: "TerminalString", k: int) -> "TerminalString":
+    def k_concat(self, other: "TerminalsSequence", k: int) -> "TerminalsSequence":
         if other.is_eps():
             # w + ε = w
             return self
@@ -54,22 +54,22 @@ class TerminalString(tuple[Terminal]):
 
         if self.is_complete(k):
             # k: w would be the same as k: (w + x)
-            return TerminalString(terminals, k)
+            return TerminalsSequence(terminals, k)
 
         my_k_len = k_length(terminals, k)
         to_take = k_length(other, k - my_k_len)
         terminals.extend(other[:to_take])
-        return TerminalString(terminals, k)
+        return TerminalsSequence(terminals, k)
 
     def __repr__(self):
         return "".join(repr(item) for item in self)
 
 
-class TerminalStrings(MutableSet[TerminalString]):
+class TerminalStrings(MutableSet[TerminalsSequence]):
     k: int
 
-    def __init__(self, items: Iterable[TerminalString], k: int):
-        self._items: set[TerminalString] = set()
+    def __init__(self, items: Iterable[TerminalsSequence], k: int):
+        self._items: set[TerminalsSequence] = set()
         self.k = k
         for item in items:
             self.add(item)
@@ -83,18 +83,18 @@ class TerminalStrings(MutableSet[TerminalString]):
         return TerminalStrings(set.intersection(*(ts._items for ts in args)), first.k)
 
     @staticmethod
-    def of(terminal_string: TerminalString, k: int):
+    def of(terminal_string: TerminalsSequence, k: int):
         return TerminalStrings([terminal_string], k)
 
     @staticmethod
     def eps(k):
         assert k >= 1
-        return TerminalStrings([TerminalString.eps()], k)
+        return TerminalStrings([TerminalsSequence.eps()], k)
 
     @staticmethod
     def eof(k):
         assert k >= 1
-        return TerminalStrings([TerminalString.eof()], k)
+        return TerminalStrings([TerminalsSequence.eof()], k)
 
     @staticmethod
     def empty(k):
@@ -117,8 +117,8 @@ class TerminalStrings(MutableSet[TerminalString]):
                     self.add(terminal_string.k_concat(other, k))
         return self
 
-    def add(self, value: TerminalString) -> None:
-        if not isinstance(value, TerminalString):
+    def add(self, value: TerminalsSequence) -> None:
+        if not isinstance(value, TerminalsSequence):
             raise TypeError(f"Expected TerminalString, got {value}")
         assert value.k <= self.k
         self._items.add(value)
@@ -135,7 +135,7 @@ class TerminalStrings(MutableSet[TerminalString]):
         assert other.k <= self.k
         return self.union(other)
 
-    def discard(self, value: TerminalString) -> None:
+    def discard(self, value: TerminalsSequence) -> None:
         raise NotImplementedError
 
     def __contains__(self, x: object) -> bool:
@@ -144,7 +144,7 @@ class TerminalStrings(MutableSet[TerminalString]):
     def __len__(self) -> int:
         return len(self._items)
 
-    def __iter__(self) -> Iterator[TerminalString]:
+    def __iter__(self) -> Iterator[TerminalsSequence]:
         return iter(self._items)
 
     def __repr__(self):
