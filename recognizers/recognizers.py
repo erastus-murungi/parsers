@@ -230,7 +230,7 @@ class LALR1Recognizer(LR0Recognizer):
 class CYKRecognizer(Recognizer):
     def recognizes(self) -> bool:
         _, table, _ = cyk_parse(self.grammar, self.source)
-        return self.grammar.orig_start in table[(0, len(self.tokens))]
+        return self.grammar.orig_start in table[(0, len(self.tokens) - 2)]
 
 
 def recognize(
