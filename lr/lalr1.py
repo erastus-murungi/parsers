@@ -77,7 +77,7 @@ class LALR1ParsingTable(LR0ParsingTable):
                     old2new[start_state][name] = new_name
                     augmented_grammar.add_expansion(new_name, augmented_rule)
 
-        return augmented_grammar.build(), old2new
+        return augmented_grammar.build(self.grammar.tokenizer), old2new
 
     def get_only_completable_item(
         self, current_state: LRState[LR0Item], current_item: LR0Item

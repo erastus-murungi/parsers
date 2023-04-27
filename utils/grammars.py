@@ -5,7 +5,7 @@ GRAMMAR1 = """
         <T> -> <F> <T0>
         <T0> -> '*' <F> <T0>
         <T0> ->
-        <F> -> '(' <E> ')' | integer
+        <F> -> '(' <E> ')' | number
     """
 
 GRAMMAR2 = """
@@ -225,7 +225,7 @@ GRAMMAR_JSON = """
          | '[' ']'
 
         <Value> -> escaped_string
-         | number
+         | signed_number
          | <Object>
          | <Array>
          | 'true'

@@ -2,16 +2,40 @@ import subprocess
 from collections import defaultdict
 from hmac import HMAC
 
+from pprint import saferepr
+
 from rich.pretty import pretty_repr
 
 from grammar import Grammar, Terminal
 from lr import Accept, Goto, LALR1ParsingTable, Reduce, Shift
+import os
 
-GENERATED_FILE_NAME = "lalr1_generated.py"
+
+OUTPUT_DIR = "_generated"
+TEMPLATE_DIR = "templates"
+TEMPLATE_FILENAME = "parser_template.py"
+GENERATED_PARSER_FILE_NAME = "parser_generated.py"
 
 
-def entry(grammar_str: str, table: dict[str, str]):
-    grammar = Grammar.from_str(grammar_str, table)
+def gen_parser(grammar: Grammar):
+    tokenizer = grammar.tokenizer
+    parser_template_file_path = os.path.join(TEMPLATE_DIR, TEMPLATE_FILENAME)
+    parser_generated_file_path = os.path.join(OUTPUT_DIR, GENERATED_PARSER_FILE_NAME)
+
+    with open(parser_template_file_path, "r") as f:
+        temp = f.read()
+        temp = temp.replace(
+            '"%patterns%"',
+            f"{{{', '.join(f'{identifier!r} : re.compile({pattern.pattern!r}, re.DOTALL)' for identifier, pattern in tokenizer.patterns.items())}}} ",
+        )
+        temp = temp.replace('"%filename%"', repr(tokenizer.get_filename()))
+
+        with open(parser_generated_file_path, "w") as f1:
+            f1.write(temp)
+    try:
+        subprocess.run(["black", parser_generated_file_path])
+    except FileNotFoundError:
+        print("Black not found, skipping formatting")
     parsing_table = LALR1ParsingTable(grammar)
     states = [state.id for state in parsing_table.states]
     states.sort()
@@ -36,28 +60,34 @@ def entry(grammar_str: str, table: dict[str, str]):
                 if isinstance(symbol, Terminal):
                     expected_tokens[state.id].append(symbol.name)
 
-    with open("template.py", "r") as f:
+    with open(parser_generated_file_path, "r") as f:
         temp = f.read()
         temp = temp.replace('"%parsing_table%"', pretty_repr(simplified_table))
         temp = temp.replace('"%states%"', pretty_repr(states))
-        temp = temp.replace('"%tokenizer_table%"', pretty_repr(table))
         temp = temp.replace('"%expected_tokens%"', pretty_repr(dict(expected_tokens)))
 
-        with open(GENERATED_FILE_NAME, "w") as f1:
+        with open(parser_generated_file_path, "w") as f1:
             f1.write(temp)
     try:
-        subprocess.run(["black", GENERATED_FILE_NAME])
+        subprocess.run(["black", parser_generated_file_path])
     except FileNotFoundError:
         print("Black not found, skipping formatting")
 
-    with open(GENERATED_FILE_NAME, "r") as f:
+    with open(parser_generated_file_path, "r") as f:
         temp = f.read()
         temp = temp.replace("%id%", HMAC(b"key", temp.encode(), "sha256").hexdigest())
-    with open(GENERATED_FILE_NAME, "w") as f:
+    with open(parser_generated_file_path, "w") as f:
         f.write(temp)
+
+
+def generate_files(grammar_str: str):
+    g = Grammar.from_str(grammar_str)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    gen_parser(g)
 
 
 if __name__ == "__main__":
     from utils.grammars import GRAMMAR1
 
-    entry(*GRAMMAR1)
+    generate_files(GRAMMAR1)

@@ -196,7 +196,10 @@ class Tokenizer:
         self._linenum = 0
         self._column = 0
         self._code_offset = 0
-        self._named_tokens = patterns
+        self.patterns = patterns
+
+    def get_filename(self):
+        return self._filename
 
     def _reset(self, code: str, filename: str = "(void)"):
         self._filename = filename
@@ -237,7 +240,7 @@ class Tokenizer:
             )
             # greedy attempt
             matches: list[tuple[str, str]] = []
-            for identifier, pattern in self._named_tokens.items():
+            for identifier, pattern in self.patterns.items():
                 matching = pattern.match(self._remaining_code())
                 if matching is not None:
                     matches.append((matching.group(0), identifier))
