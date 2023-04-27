@@ -6,6 +6,7 @@ from more_itertools import split_at
 
 from grammar import Expansion, Grammar, NonTerminal, Terminal
 from ll.core import TerminalSequence, TerminalSequenceSet
+from utils.fixpoint import fixpoint
 
 MAX_ITERATIONS = 1000
 
@@ -61,20 +62,16 @@ def get_transfer_function(expansion: Expansion, k: int) -> TransferFunction:
     return result_function
 
 
-def get_step_function(
-    k: int, grammar: Grammar
-) -> Callable[[EquationSystem, FirstSet], FirstSet]:
-    def step_function(
-        equation_system: EquationSystem, result_vector: FirstSet
-    ) -> FirstSet:
-        new_result_vector: FirstSet = defaultdict(lambda: TerminalSequenceSet.empty(k))
-        for origin, expansion in grammar.iter_productions():
-            r = equation_system[expansion](result_vector)
-            new_result_vector[expansion] = r
-            new_result_vector[origin] |= r
-        return new_result_vector
-
-    return step_function
+def init_first_set(grammar: Grammar, k: int) -> FirstSet:
+    if k <= 1:
+        initial_first_set = {}
+        for origin, expansions in grammar.items():
+            initial_first_set[origin] = TerminalSequenceSet.eps(k)
+            for expansion in expansions:
+                initial_first_set[expansion] = TerminalSequenceSet.empty(k)
+        return initial_first_set
+    else:
+        return {lhs: rhs.increment_k(k) for lhs, rhs in first_k(grammar, k - 1).items()}
 
 
 @cache
@@ -84,30 +81,16 @@ def first_k(grammar: Grammar, k: int) -> FirstSet:
         for _, expansion in grammar.iter_productions()
     }
 
-    result_vector: FirstSet
-    if k <= 1:
-        result_vector = {}
-        for origin, expansions in grammar.items():
-            result_vector[origin] = TerminalSequenceSet.eps(k)
-            for expansion in expansions:
-                result_vector[expansion] = TerminalSequenceSet.empty(k)
+    @fixpoint
+    def step_function(first_set: FirstSet) -> FirstSet:
+        updated_first_set: FirstSet = defaultdict(lambda: TerminalSequenceSet.empty(k))
+        for origin, expansion in grammar.iter_productions():
+            ts_set = equation_system[expansion](first_set)
+            updated_first_set[expansion] = ts_set
+            updated_first_set[origin] |= ts_set
+        return updated_first_set
 
-    else:
-        result_vector = {
-            lhs: rhs.increment_k(k) for lhs, rhs in first_k(grammar, k - 1).items()
-        }
-
-    step_function = get_step_function(k, grammar)
-
-    iterations = 0
-    while iterations <= MAX_ITERATIONS:
-        new_result_vector = step_function(equation_system, result_vector)
-        if new_result_vector == result_vector:
-            return dict(result_vector)
-        result_vector = new_result_vector
-        iterations += 1
-
-    raise RuntimeError("Maximum number of iterations reached")
+    return step_function(init_first_set(grammar, k))
 
 
 if __name__ == "__main__":
