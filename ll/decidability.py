@@ -36,8 +36,9 @@ def is_decidable(
         follow_set = follow_k(grammar, k)[1]
 
         follow_nt = follow_set[non_terminal]
-        if not TerminalSequenceSet.intersection(
-            (first_set[expansion].k_concat(follow_nt) for expansion in expansions)
+        if not TerminalSequenceSet.inter(
+            tuple(first_set[expansion].k_concat(follow_nt) for expansion in expansions),
+            k,
         ):
             return k
     return None

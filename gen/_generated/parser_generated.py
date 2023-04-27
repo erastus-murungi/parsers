@@ -1,5 +1,5 @@
 """
-    ID: a92df4b80a8d4a8b1f1f69e95bc97226419d9c76c0bb4e709b9ccf443bd52723
+    ID: da9ea0e332d11373e67cb9bebacb0d2e8993a9fc0befd2612ccd3d0fc0da251a
 """
 
 import re
@@ -19,9 +19,9 @@ patterns: dict[str, re.Pattern] = {
         "((([0-9](?:_?[0-9])*\\.(?:[0-9](?:_?[0-9])*)?|\\.[0-9](?:_?[0-9])*)([eE][-+]?[0-9](?:_?[0-9])*)?|[0-9](?:_?[0-9])*[eE][-+]?[0-9](?:_?[0-9])*)|(0[xX](?:_?[0-9a-fA-F])+|0[bB](?:_?[01])+|0[oO](?:_?[0-7])+|(?:0(?:_?0)*|[1-9](?:_?[0-9])*)))",
         re.DOTALL,
     ),
-}
+}  # type: ignore
 
-reserved: frozenset[str] = frozenset()
+reserved: frozenset[str] = frozenset()  # type: ignore
 
 
 class Tokenizer:
@@ -40,7 +40,7 @@ class Tokenizer:
     def get_filename(self):
         return self._filename
 
-    def _reset(self, code: str, filename: str = "%filename"):
+    def _reset(self, code: str, filename: str = "(void)"):
         self._filename = filename
         self._code = code + "\n" if code and code[-1] != "\n" else code
         self._linenum = 0
@@ -83,10 +83,11 @@ class Tokenizer:
             else:
                 # we try to match whitespace while avoiding NEWLINES because we
                 # are using NEWLINES to split lines in our program
-                if self._current_char() != "\n" and self._current_char().isspace():
-                    long_whitespace = re.match(
-                        r"[ \r\t]+", self._remaining_code()
-                    ).group(0)
+                if (
+                    self._current_char() != "\n"
+                    and (m := re.match(r"[ \r\t]+", self._remaining_code())) is not None
+                ):
+                    long_whitespace = m.group(0)
                     token = Terminal("whitespace", long_whitespace, token_location)
                     self._skip_n_chars(len(long_whitespace) - 1)
                 elif self._current_char() == "#":
@@ -168,82 +169,82 @@ def is_shift(act: int) -> bool:
 
 
 parsing_table: dict[tuple[int, str], Action] = {
-    (1, "("): 15,
-    (1, "E"): 4,
-    (1, "F"): 10,
-    (1, "T"): 6,
     (1, "number"): 31,
+    (1, "E"): 4,
+    (1, "T"): 6,
+    (1, "F"): 10,
+    (1, "("): 15,
     (2, "eof"): -1,
     (3, ")"): ("E0", 0),
     (3, "eof"): ("E0", 0),
-    (3, "+"): 19,
     (3, "E0"): 8,
+    (3, "+"): 19,
     (4, ")"): ("E", 2),
     (4, "eof"): ("E", 2),
+    (5, "T0"): 12,
     (5, ")"): ("T0", 0),
     (5, "eof"): ("T0", 0),
-    (5, "+"): ("T0", 0),
     (5, "*"): 25,
-    (5, "T0"): 12,
+    (5, "+"): ("T0", 0),
     (6, ")"): ("T", 2),
     (6, "eof"): ("T", 2),
     (6, "+"): ("T", 2),
-    (7, "("): 15,
-    (7, "E"): 16,
-    (7, "F"): 10,
-    (7, "T"): 6,
     (7, "number"): 31,
+    (7, "E"): 16,
+    (7, "T"): 6,
+    (7, "F"): 10,
+    (7, "("): 15,
     (8, ")"): 33,
-    (9, "("): 15,
-    (9, "F"): 10,
-    (9, "T"): 20,
     (9, "number"): 31,
+    (9, "T"): 20,
+    (9, "F"): 10,
+    (9, "("): 15,
     (10, ")"): ("E0", 0),
     (10, "eof"): ("E0", 0),
-    (10, "+"): 19,
     (10, "E0"): 22,
+    (10, "+"): 19,
     (11, ")"): ("E0", 3),
     (11, "eof"): ("E0", 3),
-    (12, "("): 15,
-    (12, "F"): 26,
     (12, "number"): 31,
+    (12, "F"): 26,
+    (12, "("): 15,
+    (13, "T0"): 28,
     (13, ")"): ("T0", 0),
     (13, "eof"): ("T0", 0),
-    (13, "+"): ("T0", 0),
     (13, "*"): 25,
-    (13, "T0"): 28,
+    (13, "+"): ("T0", 0),
     (14, ")"): ("T0", 3),
     (14, "eof"): ("T0", 3),
     (14, "+"): ("T0", 3),
     (15, ")"): ("F", 1),
     (15, "eof"): ("F", 1),
-    (15, "+"): ("F", 1),
     (15, "*"): ("F", 1),
+    (15, "+"): ("F", 1),
     (16, ")"): ("F", 3),
     (16, "eof"): ("F", 3),
-    (16, "+"): ("F", 3),
     (16, "*"): ("F", 3),
+    (16, "+"): ("F", 3),
 }  # type: ignore
 
 states: list[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]  # type: ignore
 
 expected_tokens: dict[int, list[str]] = {
-    1: ["(", "number"],
+    1: ["number", "("],
     2: ["eof"],
     3: [")", "eof", "+"],
     4: [")", "eof"],
-    5: [")", "eof", "+", "*"],
+    5: [")", "eof", "*", "+"],
     6: [")", "eof", "+"],
-    7: ["(", "number"],
+    7: ["number", "("],
     8: [")"],
-    9: ["(", "number"],
+    9: ["number", "("],
     10: [")", "eof", "+"],
     11: [")", "eof"],
-    12: ["(", "number"],
-    13: [")", "eof", "+", "*"],
+    12: ["number", "("],
+    13: [")", "eof", "*", "+"],
     14: [")", "eof", "+"],
-    15: [")", "eof", "+", "*"],
-    16: [")", "eof", "+", "*"],
+    15: [")", "eof", "*", "+"],
+    16: [")", "eof", "*", "+"],
 }  # type: ignore
 
 

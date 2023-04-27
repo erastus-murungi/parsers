@@ -4,7 +4,7 @@ from typing import Callable, NamedTuple
 from more_itertools import split_at
 
 from grammar import Grammar, NonTerminal, Terminal
-from ll.core import TerminalSequence, TerminalSequenceSet
+from ll.core import TerminalSequenceSet
 from ll.first_k import first_k
 from utils.fixpoint import fixpoint
 
@@ -52,7 +52,7 @@ def follow_k(grammar: Grammar, k: int) -> tuple[FollowSetUNT, FollowSet]:
             case [Terminal(), *_]:
                 return lambda follow_set_unt: transfer_function(
                     follow_set_unt
-                ).k_concat(TerminalSequenceSet.of(TerminalSequence(symbols, k), k))
+                ).k_concat(TerminalSequenceSet.of(symbols, k))
             case []:
                 return transfer_function
             case _:

@@ -49,7 +49,7 @@ def gen_parser(grammar: Grammar):
         parser_generated_file_path, "w"
     ) as generated:
         items = (
-            f"{identifier!r} : re.compile({pattern.pattern!r}, re.DOTALL)"
+            f"{identifier!r} : re.compile({pattern.pattern!r}, re.DOTALL)\n"
             for identifier, pattern in tokenizer.patterns.items()
         )
 
@@ -75,7 +75,9 @@ def gen_parser(grammar: Grammar):
 
     with open(parser_generated_file_path, "w") as generated:
         generated.write(
-            generated_str.replace("%id%", HMAC(b"key", generated_str.encode(), "sha256").hexdigest())
+            generated_str.replace(
+                "%id%", HMAC(b"key", generated_str.encode(), "sha256").hexdigest()
+            )
         )
 
 

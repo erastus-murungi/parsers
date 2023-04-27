@@ -3,9 +3,10 @@ from functools import cache, reduce
 from typing import Callable
 
 from more_itertools import split_at
+from typeguard import typechecked
 
 from grammar import Expansion, Grammar, NonTerminal, Terminal
-from ll.core import TerminalSequence, TerminalSequenceSet
+from ll.core import TerminalSequenceSet
 from utils.fixpoint import fixpoint
 
 FirstSet = dict[NonTerminal | Expansion, TerminalSequenceSet]
@@ -34,6 +35,7 @@ def init_first_set(grammar: Grammar, k: int) -> FirstSet:
 
 @cache
 def first_k(grammar: Grammar, k: int) -> FirstSet:
+    @typechecked
     def append_transfer_function(
         transfer_function: TransferFunction, symbols: list[Terminal] | list[NonTerminal]
     ) -> TransferFunction:
@@ -44,10 +46,12 @@ def first_k(grammar: Grammar, k: int) -> FirstSet:
                 )
             case [Terminal(), *_]:
                 return lambda first_set: transfer_function(first_set).k_concat(
-                    TerminalSequenceSet.of(TerminalSequence(symbols, k), k)
+                    TerminalSequenceSet.of(symbols, k)
                 )
             case []:
                 return transfer_function
+            case _:
+                raise ValueError(f"Invalid symbol {symbols}")
 
     equation_system: EquationSystem = {
         expansion: reduce(

@@ -10,9 +10,9 @@ from more_itertools import one
 from grammar import EOF, Loc, Terminal
 from parsers.parser import ParseTree
 
-patterns: dict[str, re.Pattern] = "%patterns%"
+patterns: dict[str, re.Pattern] = "%patterns%"  # type: ignore
 
-reserved: frozenset[str] = "%reserved%"
+reserved: frozenset[str] = "%reserved%"  # type: ignore
 
 
 class Tokenizer:
@@ -31,7 +31,7 @@ class Tokenizer:
     def get_filename(self):
         return self._filename
 
-    def _reset(self, code: str, filename: str = "%filename"):
+    def _reset(self, code: str, filename: str = "%filename%"):
         self._filename = filename
         self._code = code + "\n" if code and code[-1] != "\n" else code
         self._linenum = 0
@@ -74,10 +74,11 @@ class Tokenizer:
             else:
                 # we try to match whitespace while avoiding NEWLINES because we
                 # are using NEWLINES to split lines in our program
-                if self._current_char() != "\n" and self._current_char().isspace():
-                    long_whitespace = re.match(
-                        r"[ \r\t]+", self._remaining_code()
-                    ).group(0)
+                if (
+                    self._current_char() != "\n"
+                    and (m := re.match(r"[ \r\t]+", self._remaining_code())) is not None
+                ):
+                    long_whitespace = m.group(0)
                     token = Terminal("whitespace", long_whitespace, token_location)
                     self._skip_n_chars(len(long_whitespace) - 1)
                 elif self._current_char() == "#":

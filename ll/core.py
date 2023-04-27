@@ -18,12 +18,8 @@ def k_length(terminals: Iterable[Terminal], k: int) -> int:
 
 
 class TerminalSequence(tuple[Terminal, ...]):
-    k: int
-
     def __new__(cls, terminals: Iterable[Terminal], k: int):
-        self = tuple.__new__(TerminalSequence, islice(terminals, k))  # type: ignore
-        self.k = k
-        return self
+        return tuple.__new__(TerminalSequence, islice(terminals, k))  # type: ignore
 
     def is_complete(self, k: int):
         return not self.is_eps() and len(self) >= k or (self and self[-1] is EOF)
@@ -72,24 +68,20 @@ class TerminalSequenceSet(set[TerminalSequence]):
         super().__init__()
         self.k = k
         for item in items:
+            assert k_length(item, k) <= k
             self.add(item)
 
     @staticmethod
-    def intersection(iterable: Iterable["TerminalSequenceSet"]):
-        ts_sets = tuple(iterable)
-        assert ts_sets
-        first = ts_sets[0]
-        assert all(
-            isinstance(ts_set, TerminalSequenceSet) and ts_set.k == first.k
-            for ts_set in ts_sets
-        )
-        return TerminalSequenceSet(
-            set.intersection(*(ts_set for ts_set in ts_sets)), first.k
-        )
+    @typechecked
+    def inter(
+        ts_sets: tuple["TerminalSequenceSet", ...], k: int
+    ) -> "TerminalSequenceSet":
+        assert all(ts_set.k == k for ts_set in ts_sets)
+        return TerminalSequenceSet(set.intersection(*ts_sets), k)
 
     @staticmethod
-    def of(terminal_string: TerminalSequence, k: int):
-        return TerminalSequenceSet([terminal_string], k)
+    def of(it: Iterable[Terminal], k: int) -> "TerminalSequenceSet":
+        return TerminalSequenceSet([TerminalSequence(it, k)], k)
 
     @staticmethod
     def eps(k):
@@ -125,29 +117,27 @@ class TerminalSequenceSet(set[TerminalSequence]):
             return ts_set
         return self
 
-    @typechecked
-    def add(self, value: TerminalSequence) -> None:
-        assert value.k <= self.k
-        super().add(value)
-
-    @typechecked
-    def union(self, values: "TerminalSequenceSet") -> "TerminalSequenceSet":
-        assert (value.k <= self.k for value in values)
-        return TerminalSequenceSet(self | values, self.k)
-
-    @typechecked
-    def __or__(self, other: "TerminalSequenceSet"):
-        assert other.k <= self.k
-        return self.union(other)
-
-    def discard(self, value: TerminalSequence) -> None:
-        raise NotImplementedError
+    def discard(self, element) -> None:
+        raise NotImplementedError(
+            "we are not meant to remove elements from this set, yet"
+        )
 
     def __repr__(self):
-        return "{" + ", ".join(repr(item) for item in self) + "}k:" + str(self.k)
+        return f"Set({super().__repr__()}, k={self.k})"
 
     @typechecked
-    def __ior__(self, other: "TerminalSequenceSet"):
-        assert other.k <= self.k
+    def _union(self, other: "TerminalSequenceSet") -> "TerminalSequenceSet":
+        assert self.k == other.k
+        return TerminalSequenceSet(set.union(self, other), self.k)
+
+    @typechecked
+    def _update(self, other: "TerminalSequenceSet") -> "TerminalSequenceSet":
+        assert self.k == other.k
         self.update(other)
         return self
+
+    def __or__(self, other):
+        return self._union(other)
+
+    def __ior__(self, other):
+        return self._update(other)
