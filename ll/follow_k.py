@@ -7,6 +7,7 @@ from more_itertools import split_at
 from grammar import Expansion, Grammar, NonTerminal, Terminal
 from ll.core import TerminalSequence, TerminalSequenceSet
 from ll.first_k import FirstSet, first_k
+from utils.fixpoint import fixpoint
 
 MAX_ITERATIONS = 1000
 
@@ -29,20 +30,6 @@ FollowSet = dict[NonTerminal, TerminalSequenceSet]
 TransferFunction = Callable[[ResultMap, FollowSet], TerminalSequenceSet]
 EquationSystem = dict[UniqueNonTerminalIdentifier, TransferFunction]
 ResultFunction = Callable[[ResultMap, FollowSet], TerminalSequenceSet]
-
-
-def get_step_function() -> Callable[[EquationSystem, ResultMap, FollowSet], ResultMap]:
-    def step_function(
-        equation_system: EquationSystem, result_map: ResultMap, follow_set: FollowSet
-    ) -> ResultMap:
-        new_result_map: ResultMap = {}
-        for pos, _ in result_map.items():
-            r = equation_system[pos](result_map, follow_set)
-            follow_set[pos.non_terminal] |= r
-            new_result_map[pos] = r
-        return new_result_map
-
-    return step_function
 
 
 def get_init_result_function(k: int) -> ResultFunction:
@@ -121,6 +108,14 @@ def get_partial_equation_system(
     return equation_system
 
 
+def get_init_result_map(grammar, k, equation_system) -> ResultMap:
+    if k <= 1:
+        return {pos: TerminalSequenceSet.empty(k) for pos in equation_system.keys()}
+    else:
+        prev = follow_k(grammar, k - 1)[0]
+        return {key: rhs.increment_k(k) for key, rhs in prev.items()}
+
+
 @cache
 def follow_k(grammar: Grammar, k: int) -> tuple[ResultMap, FollowSet]:
     assert k >= 1, "k must be greater than or equal to 1"
@@ -142,26 +137,16 @@ def follow_k(grammar: Grammar, k: int) -> tuple[ResultMap, FollowSet]:
     }
     follow_set[grammar.start] = TerminalSequenceSet.eof(k)
 
-    result_map: ResultMap
-    if k <= 1:
-        result_map = {
-            pos: TerminalSequenceSet.empty(k) for pos in equation_system.keys()
-        }
-    else:
-        prev = follow_k(grammar, k - 1)[0]
-        result_map = {key: rhs.increment_k(k) for key, rhs in prev.items()}
+    @fixpoint
+    def step_function(result_map: ResultMap) -> ResultMap:
+        new_result_map: ResultMap = {}
+        for pos, _ in result_map.items():
+            ts_set = equation_system[pos](result_map, follow_set)
+            follow_set[pos.non_terminal] |= ts_set
+            new_result_map[pos] = ts_set
+        return new_result_map
 
-    step_function = get_step_function()
-
-    iterations = 0
-    while iterations <= MAX_ITERATIONS:
-        new_result_map = step_function(equation_system, result_map, follow_set)
-        if new_result_map == result_map:
-            return result_map, follow_set
-        result_map = new_result_map
-        iterations += 1
-
-    raise RuntimeError("Maximum number of iterations reached")
+    return step_function(get_init_result_map(grammar, k, equation_system)), follow_set
 
 
 if __name__ == "__main__":
