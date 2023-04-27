@@ -75,7 +75,7 @@ class LL1Parser(Parser):
             symbol, root = stack.pop()
             token = self.tokens[token_index]
             if isinstance(symbol, Terminal):
-                if symbol.matches(token):
+                if symbol == token:
                     root.expansion.append(token)
                     token_index += symbol is not EMPTY
                 else:
@@ -127,7 +127,7 @@ class EarleyParser(Parser):
                 current_symbol, *left = left
                 if isinstance(current_symbol, Terminal):
                     current_token = self.tokens[start_index]
-                    if current_symbol.matches(current_token):
+                    if current_symbol == current_token:
                         yield from yield_all_paths(
                             path + [current_token],
                             start_index + 1,

@@ -2,11 +2,12 @@ from collections import defaultdict
 from functools import cache
 from typing import Callable, cast
 
-from more_itertools import split_at
+from more_itertools import split_at, first, one
 
 from grammar import Expansion, Grammar, NonTerminal, Terminal
 from ll.core import TerminalSequence, TerminalSequenceSet
 from utils.fixpoint import fixpoint
+from functools import reduce
 
 MAX_ITERATIONS = 1000
 
@@ -14,52 +15,6 @@ FirstSet = dict[NonTerminal | Expansion, TerminalSequenceSet]
 TransferFunction = Callable[[FirstSet], TerminalSequenceSet]
 EquationSystem = dict[Expansion, TransferFunction]
 ResultFunction = Callable[[FirstSet], TerminalSequenceSet]
-
-
-def get_init_result_function(k: int) -> ResultFunction:
-    return lambda result_vector: TerminalSequenceSet.eps(k)
-
-
-def get_terminal_result_function(
-    result_function: ResultFunction, terminals: tuple[Terminal, ...], k: int
-) -> ResultFunction:
-    terminal_strings = TerminalSequenceSet.of(TerminalSequence(terminals, k), k)
-    return lambda result_vector: result_function(result_vector).k_concat(
-        terminal_strings, k
-    )
-
-
-def get_non_terminal_result_function(
-    result_function: ResultFunction, non_terminal: NonTerminal, k: int
-) -> ResultFunction:
-    def f(result_vector: FirstSet) -> TerminalSequenceSet:
-        ts_set = result_vector[non_terminal]
-        return result_function(result_vector).k_concat(ts_set, k)
-
-    return f
-
-
-def get_transfer_function(expansion: Expansion, k: int) -> TransferFunction:
-    result_function = get_init_result_function(k)
-    for symbols in split_at(
-        expansion,
-        pred=lambda symbol: isinstance(symbol, NonTerminal),
-        keep_separator=True,
-    ):
-        if not symbols:
-            continue
-        if isinstance(symbols[0], Terminal):
-            terminals = cast(tuple[Terminal, ...], tuple(symbols))
-            result_function = get_terminal_result_function(
-                result_function, terminals, k
-            )
-        else:
-            (non_terminal,) = symbols
-            result_function = get_non_terminal_result_function(
-                result_function, non_terminal, k
-            )
-
-    return result_function
 
 
 def init_first_set(grammar: Grammar, k: int) -> FirstSet:
@@ -76,8 +31,31 @@ def init_first_set(grammar: Grammar, k: int) -> FirstSet:
 
 @cache
 def first_k(grammar: Grammar, k: int) -> FirstSet:
+    def concat(
+        result_function: ResultFunction, symbols: list[Terminal] | list[NonTerminal]
+    ) -> ResultFunction:
+        match symbols:
+            case [NonTerminal()]:
+                return lambda first_set: result_function(first_set).k_concat(
+                    first_set[one(symbols)], k
+                )
+            case [Terminal(), *_]:
+                return lambda first_set: result_function(first_set).k_concat(
+                    TerminalSequenceSet.of(TerminalSequence(symbols, k), k), k
+                )
+            case []:
+                return result_function
+
     equation_system: EquationSystem = {
-        expansion: get_transfer_function(expansion, k)
+        expansion: reduce(
+            concat,
+            split_at(
+                expansion,
+                pred=lambda symbol: isinstance(symbol, NonTerminal),
+                keep_separator=True,
+            ),
+            lambda _: TerminalSequenceSet.eps(k),
+        )
         for _, expansion in grammar.iter_productions()
     }
 
