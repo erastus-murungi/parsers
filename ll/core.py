@@ -2,6 +2,7 @@ from itertools import islice
 from typing import Iterable
 
 from more_itertools import partition
+from typeguard import typechecked
 
 from grammar import EMPTY, EOF, Terminal
 
@@ -41,6 +42,7 @@ class TerminalSequence(tuple[Terminal, ...]):
         return len(self) == 1 and self[0] is EMPTY
 
     # Concatenates two collections with respect to the rules of k-concatenation
+    @typechecked
     def k_concat(self, other: "TerminalSequence", k: int) -> "TerminalSequence":
         if other.is_eps():
             # w + ε = w
@@ -124,21 +126,18 @@ class TerminalSequenceSet(set[TerminalSequence]):
             return ts_set
         return self
 
+    @typechecked
     def add(self, value: TerminalSequence) -> None:
-        if not isinstance(value, TerminalSequence):
-            raise TypeError(f"Expected TerminalString, got {value}")
         assert value.k <= self.k
         super().add(value)
 
+    @typechecked
     def union(self, values: "TerminalSequenceSet") -> "TerminalSequenceSet":
-        if not isinstance(values, TerminalSequenceSet):
-            raise TypeError(f"Expected TerminalStrings, got {values}")
         assert (value.k <= self.k for value in values)
         return TerminalSequenceSet(self | values, self.k)
 
-    def __or__(self, other):
-        if not isinstance(other, TerminalSequenceSet):
-            raise TypeError(f"Expected TerminalStrings, got {other}")
+    @typechecked
+    def __or__(self, other: "TerminalSequenceSet"):
         assert other.k <= self.k
         return self.union(other)
 
@@ -148,9 +147,8 @@ class TerminalSequenceSet(set[TerminalSequence]):
     def __repr__(self):
         return "{" + ", ".join(repr(item) for item in self) + "}k:" + str(self.k)
 
-    def __ior__(self, other):
-        if not isinstance(other, TerminalSequenceSet):
-            raise TypeError(f"Expected TerminalStrings, got {other}")
+    @typechecked
+    def __ior__(self, other: "TerminalSequenceSet"):
         assert other.k <= self.k
         self.update(other)
         return self

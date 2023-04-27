@@ -1,6 +1,6 @@
 from typing import NamedTuple, Optional, cast
 
-from grammar import Expansion, Grammar, NonTerminal, Symbol, Terminal
+from grammar import Expansion, Grammar, NonTerminal, Symbol, Terminal, EOF
 from lr import LRState
 
 
@@ -48,7 +48,7 @@ def gen_earley_sets(
 ) -> list[LRState[EarleyItem]]:
     # initialize the recognizer; we have exactly one set for each token
     assert len(tokens) > 0, "Cannot recognize an empty string"
-    assert tokens[-1].token_type == "eof", "Last token must be EOF"
+    assert tokens[-1] == EOF, "Last token must be EOF"
 
     nullable_set = grammar.gen_nullable()
 
@@ -87,7 +87,7 @@ def gen_earley_sets(
             # expected word is next in the input, advance the
             # rule past the word.
             if not completed and isinstance(right, Terminal):
-                if pos + 1 < len(earley_sets) and right.matches(token):
+                if pos + 1 < len(earley_sets) and right == token:
                     earley_sets[pos + 1].append(earley_set[current_pos].advance())
             # Predictor - the state is expecting a constituent C,
             # so add new states for all expansions of C, starting

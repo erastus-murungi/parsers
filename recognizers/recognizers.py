@@ -107,7 +107,7 @@ class LL1Recognizer(Recognizer):
             symbol = stack.pop()
             token = self.tokens[token_index]
             if isinstance(symbol, Terminal):
-                if symbol.matches(token):
+                if symbol == token:
                     token_index += symbol is not EMPTY
                 else:
                     raise SyntaxError(f"Expected {symbol.name} but got {token}")
@@ -135,7 +135,7 @@ class LLKRecognizer(Recognizer):
             symbol = stack.pop()
             token = self.tokens[token_index]
             if isinstance(symbol, Terminal):
-                if symbol.matches(token):
+                if symbol == token:
                     token_index += symbol is not EMPTY
                 else:
                     raise SyntaxError(f"Expected {symbol.name} but got {token}")

@@ -131,7 +131,7 @@ class Tokenizer:
             token
             for token in self.get_tokens(code)
             if not (
-                token.token_type
+                token.name
                 in (
                     "whitespace",
                     "newline",

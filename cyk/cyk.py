@@ -72,7 +72,7 @@ def yield_trees(
     cnf_grammar: Grammar, pointers: PointerTable, source: str
 ) -> Iterator[ParseTree]:
     words = cnf_grammar.tokenizer.get_tokens_no_whitespace(source)
-    assert EOF.matches(words[-1])
+    assert EOF == words[-1]
 
     def yield_trees_impl(current: NonTerminal, span: Span) -> Iterator[ParseTree]:
         current_str = str(current)
@@ -130,7 +130,7 @@ def cyk_parse(
                 if (
                     len(expansion) == 1
                     and isinstance(expansion[0], Terminal)
-                    and expansion[0].matches(word)
+                    and expansion[0] == word
                 ):
                     table[(col, col)] |= {root}
                     pointers[(col, col)][root] |= {col}

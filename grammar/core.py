@@ -46,7 +46,6 @@ class Terminal(Symbol):
 
     def __init__(self, token_type: str, lexeme: str, loc: Loc):
         super().__init__(token_type)
-        self.token_type = token_type
         self.lexeme = lexeme
         self.loc = loc
 
@@ -55,11 +54,6 @@ class Terminal(Symbol):
         """A convenient constructor to avoid the frequent pattern:
         Token(TokenType.X, TokenType.X.value, loc)"""
         return Terminal(token_type, token_type, loc)
-
-    def matches(self, token: "Terminal") -> bool:
-        if isinstance(token, Terminal):
-            return self.token_type == token.token_type
-        return False
 
     def __repr__(self):
         return f"[bold blue]{self.name}[/bold blue]"
@@ -73,12 +67,7 @@ class Marker(Terminal):
         return self.name == "eof"
 
 
-class Empty(Marker):
-    def matches(self, token: "Terminal") -> bool:
-        return True
-
-
-EMPTY = Empty("ε", "ε", Loc("(ε)", 0, 0, 0))
+EMPTY = Marker("ε", "ε", Loc("(ε)", 0, 0, 0))
 EOF = Marker("eof", "$", Loc("(eof)", 0, 0, 0))
 
 
@@ -118,9 +107,7 @@ class Expansion(tuple[Symbol]):
     def matches(self, tokens: Sequence[Terminal]) -> bool:
         if len(self) == len(tokens):
             if all_terminals(self):
-                return all(
-                    terminal.matches(token) for terminal, token in zip(self, tokens)
-                )
+                return all(terminal == token for terminal, token in zip(self, tokens))
         return False
 
     def perform_derivation(self, index, replacer: "Expansion") -> "Expansion":
@@ -155,7 +142,7 @@ class Expansion(tuple[Symbol]):
         # we should prune
         for symbol, token in zip(self, tokens):
             if isinstance(symbol, Terminal):
-                if not symbol.matches(token):
+                if not symbol == token:
                     return True
             else:
                 break
@@ -167,7 +154,7 @@ class Expansion(tuple[Symbol]):
         # if any of the tokens in the sentential form is not in the tokens,
         # we should prune
         for terminal in filter(lambda item: isinstance(item, Terminal), self):
-            if not any(cast(Terminal, terminal).matches(token) for token in tokens):
+            if not any(terminal == token for token in tokens):
                 return True
         return False
 
@@ -312,7 +299,7 @@ class Tokenizer:
             token
             for token in self.get_tokens(code)
             if not (
-                token.token_type
+                token.name
                 in (
                     "whitespace",
                     "newline",

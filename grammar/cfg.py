@@ -4,6 +4,7 @@ from itertools import count
 from typing import Iterator, Optional, Sequence
 
 from more_itertools import first, sliced
+from typeguard import typechecked
 
 from utils.frozendict import FrozenDict
 
@@ -158,10 +159,10 @@ class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
             self._implicit_start: NonTerminal = NonTerminal(implicit_start_name)
             self._start = start
 
+        @typechecked
         def add_expansion(
             self, origin: NonTerminal, seq: Sequence[Symbol]
         ) -> "Grammar.Builder":
-            assert isinstance(origin, NonTerminal)
             if EOF in seq:
                 raise ValueError(
                     "you are not allowed to explicit add an EOF token, "
