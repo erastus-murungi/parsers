@@ -1,16 +1,14 @@
 """
-    ID: b1503378e723d852f9cb253ac11562b6309b281a12f992e7fedadcb3a86de021
+    ID: 4ca1fc7569e8eb198ab13135420df5ee1c32c0e3197eee42664d87c085e72ed9
 """
 
 import re
 from typing import Iterator
 
-from grammar import Loc
 from more_itertools import one
 
-from grammar import EOF, Terminal
+from grammar import EOF, Loc, Terminal
 from parsers.parser import ParseTree
-
 
 patterns: dict[str, re.Pattern] = {
     "+": re.compile("\\+", re.DOTALL),
@@ -23,15 +21,24 @@ patterns: dict[str, re.Pattern] = {
     ),
 }
 
+reserved: frozenset[str] = frozenset()
+
 
 class Tokenizer:
-    def __init__(self, filename: str = "(void)"):
+    def __init__(
+        self,
+        filename: str = "(void)",
+    ):
         self._filename = filename
         self._code = ""
         self._linenum = 0
         self._column = 0
         self._code_offset = 0
-        self._named_tokens = patterns
+        self.patterns = patterns
+        self.reserved = reserved
+
+    def get_filename(self):
+        return self._filename
 
     def _reset(self, code: str, filename: str = "%filename"):
         self._filename = filename
@@ -48,36 +55,31 @@ class Tokenizer:
         self._code_offset += n
         self._column += n
 
-    def _match_unknown(self, pos) -> Terminal:
-        word_match = re.match(r"\b\w+\b", self._remaining_code())
-        if word_match is not None and len(word_match.group(0)) > 1:
-            word = word_match.group(0).strip()
-            lexeme, ret_type = word, "word"
-        else:
-            lexeme, ret_type = self._current_char(), "char"
-        self._skip_n_chars(len(lexeme) - 1)
-        return Terminal(ret_type, lexeme, pos)
-
     def _current_char(self):
         return self._code[self._code_offset]
 
     def _remaining_code(self):
         return self._code[self._code_offset :]
 
-    def tokenize(self) -> Iterator[Terminal]:
+    def _tokenize(self) -> Iterator[Terminal]:
         while self._code_offset < len(self._code):
             token_location = Loc(
                 self._filename, self._linenum, self._column, self._code_offset
             )
+            # greedy attempt
             matches: list[tuple[str, str]] = []
-            for identifier, pattern in self._named_tokens.items():
+            for identifier, pattern in self.patterns.items():
                 matching = pattern.match(self._remaining_code())
                 if matching is not None:
                     matches.append((matching.group(0), identifier))
             if matches:
+                # get the longest match
                 lexeme, identifier = max(matches, key=lambda t: len(t[0]))
                 self._skip_n_chars(len(lexeme) - 1)
-                token = Terminal(identifier, lexeme, token_location)
+                if lexeme in self.reserved:
+                    token = Terminal.from_token_type(lexeme, token_location)
+                else:
+                    token = Terminal(identifier, lexeme, token_location)
             else:
                 # we try to match whitespace while avoiding NEWLINES because we
                 # are using NEWLINES to split lines in our program
@@ -95,7 +97,9 @@ class Tokenizer:
                     # we set column to -1 because it will be incremented to 0 after the token has been yielded
                     self._column = -1
                 else:
-                    token = self._match_unknown(token_location)
+                    raise ValueError(
+                        'unrecognized token: "' + self._current_char() + '"'
+                    )
 
             yield token
             self._to_next_char()
@@ -129,7 +133,7 @@ class Tokenizer:
         :return: an iterator over the tokens
         """
         self._reset(code)
-        yield from self.tokenize()
+        yield from self._tokenize()
 
     def get_tokens_no_whitespace(self, code: str):
         return [
@@ -164,11 +168,11 @@ def is_shift(act: int) -> bool:
 
 
 parsing_table: dict[tuple[int, str], Action] = {
+    (1, "number"): 31,
     (1, "F"): 10,
+    (1, "E"): 4,
     (1, "T"): 6,
     (1, "("): 15,
-    (1, "E"): 4,
-    (1, "number"): 31,
     (2, "eof"): -1,
     (3, ")"): ("E0", 0),
     (3, "E0"): 8,
@@ -176,47 +180,47 @@ parsing_table: dict[tuple[int, str], Action] = {
     (3, "eof"): ("E0", 0),
     (4, ")"): ("E", 2),
     (4, "eof"): ("E", 2),
-    (5, ")"): ("T0", 0),
     (5, "*"): 25,
     (5, "T0"): 12,
+    (5, ")"): ("T0", 0),
     (5, "+"): ("T0", 0),
     (5, "eof"): ("T0", 0),
     (6, ")"): ("T", 2),
     (6, "+"): ("T", 2),
     (6, "eof"): ("T", 2),
+    (7, "number"): 31,
     (7, "F"): 10,
+    (7, "E"): 16,
     (7, "T"): 6,
     (7, "("): 15,
-    (7, "E"): 16,
-    (7, "number"): 31,
     (8, ")"): 33,
+    (9, "number"): 31,
     (9, "F"): 10,
     (9, "T"): 20,
     (9, "("): 15,
-    (9, "number"): 31,
     (10, ")"): ("E0", 0),
     (10, "E0"): 22,
     (10, "+"): 19,
     (10, "eof"): ("E0", 0),
     (11, ")"): ("E0", 3),
     (11, "eof"): ("E0", 3),
+    (12, "number"): 31,
     (12, "F"): 26,
     (12, "("): 15,
-    (12, "number"): 31,
-    (13, ")"): ("T0", 0),
     (13, "*"): 25,
     (13, "T0"): 28,
+    (13, ")"): ("T0", 0),
     (13, "+"): ("T0", 0),
     (13, "eof"): ("T0", 0),
     (14, ")"): ("T0", 3),
     (14, "+"): ("T0", 3),
     (14, "eof"): ("T0", 3),
-    (15, ")"): ("F", 1),
     (15, "*"): ("F", 1),
+    (15, ")"): ("F", 1),
     (15, "+"): ("F", 1),
     (15, "eof"): ("F", 1),
-    (16, ")"): ("F", 3),
     (16, "*"): ("F", 3),
+    (16, ")"): ("F", 3),
     (16, "+"): ("F", 3),
     (16, "eof"): ("F", 3),
 }  # type: ignore
@@ -224,22 +228,22 @@ parsing_table: dict[tuple[int, str], Action] = {
 states: list[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]  # type: ignore
 
 expected_tokens: dict[int, list[str]] = {
-    1: ["(", "number"],
+    1: ["number", "("],
     2: ["eof"],
     3: [")", "+", "eof"],
     4: [")", "eof"],
-    5: [")", "*", "+", "eof"],
+    5: ["*", ")", "+", "eof"],
     6: [")", "+", "eof"],
-    7: ["(", "number"],
+    7: ["number", "("],
     8: [")"],
-    9: ["(", "number"],
+    9: ["number", "("],
     10: [")", "+", "eof"],
     11: [")", "eof"],
-    12: ["(", "number"],
-    13: [")", "*", "+", "eof"],
+    12: ["number", "("],
+    13: ["*", ")", "+", "eof"],
     14: [")", "+", "eof"],
-    15: [")", "*", "+", "eof"],
-    16: [")", "*", "+", "eof"],
+    15: ["*", ")", "+", "eof"],
+    16: ["*", ")", "+", "eof"],
 }  # type: ignore
 
 

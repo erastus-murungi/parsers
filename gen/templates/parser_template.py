@@ -5,24 +5,31 @@
 import re
 from typing import Iterator
 
-from grammar import Loc
 from more_itertools import one
 
-from grammar import EOF, Terminal
+from grammar import EOF, Loc, Terminal
 from parsers.parser import ParseTree
-
 
 patterns: dict[str, re.Pattern] = "%patterns%"
 
+reserved: frozenset[str] = "%reserved%"
+
 
 class Tokenizer:
-    def __init__(self, filename: str = "%filename%"):
+    def __init__(
+        self,
+        filename: str = "%filename%",
+    ):
         self._filename = filename
         self._code = ""
         self._linenum = 0
         self._column = 0
         self._code_offset = 0
-        self._named_tokens = patterns
+        self.patterns = patterns
+        self.reserved = reserved
+
+    def get_filename(self):
+        return self._filename
 
     def _reset(self, code: str, filename: str = "%filename"):
         self._filename = filename
@@ -39,36 +46,31 @@ class Tokenizer:
         self._code_offset += n
         self._column += n
 
-    def _match_unknown(self, pos) -> Terminal:
-        word_match = re.match(r"\b\w+\b", self._remaining_code())
-        if word_match is not None and len(word_match.group(0)) > 1:
-            word = word_match.group(0).strip()
-            lexeme, ret_type = word, "word"
-        else:
-            lexeme, ret_type = self._current_char(), "char"
-        self._skip_n_chars(len(lexeme) - 1)
-        return Terminal(ret_type, lexeme, pos)
-
     def _current_char(self):
         return self._code[self._code_offset]
 
     def _remaining_code(self):
         return self._code[self._code_offset :]
 
-    def tokenize(self) -> Iterator[Terminal]:
+    def _tokenize(self) -> Iterator[Terminal]:
         while self._code_offset < len(self._code):
             token_location = Loc(
                 self._filename, self._linenum, self._column, self._code_offset
             )
+            # greedy attempt
             matches: list[tuple[str, str]] = []
-            for identifier, pattern in self._named_tokens.items():
+            for identifier, pattern in self.patterns.items():
                 matching = pattern.match(self._remaining_code())
                 if matching is not None:
                     matches.append((matching.group(0), identifier))
             if matches:
+                # get the longest match
                 lexeme, identifier = max(matches, key=lambda t: len(t[0]))
                 self._skip_n_chars(len(lexeme) - 1)
-                token = Terminal(identifier, lexeme, token_location)
+                if lexeme in self.reserved:
+                    token = Terminal.from_token_type(lexeme, token_location)
+                else:
+                    token = Terminal(identifier, lexeme, token_location)
             else:
                 # we try to match whitespace while avoiding NEWLINES because we
                 # are using NEWLINES to split lines in our program
@@ -86,7 +88,9 @@ class Tokenizer:
                     # we set column to -1 because it will be incremented to 0 after the token has been yielded
                     self._column = -1
                 else:
-                    token = self._match_unknown(token_location)
+                    raise ValueError(
+                        'unrecognized token: "' + self._current_char() + '"'
+                    )
 
             yield token
             self._to_next_char()
@@ -120,7 +124,7 @@ class Tokenizer:
         :return: an iterator over the tokens
         """
         self._reset(code)
-        yield from self.tokenize()
+        yield from self._tokenize()
 
     def get_tokens_no_whitespace(self, code: str):
         return [

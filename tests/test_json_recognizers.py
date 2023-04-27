@@ -2,11 +2,11 @@ import json
 from typing import Literal
 
 import pytest
+import requests
 
 from grammar import Grammar
 from recognizers import recognize
 from utils.grammars import GRAMMAR_JSON
-import requests
 
 test_jsons = (
     """

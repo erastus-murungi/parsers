@@ -7,6 +7,7 @@ from more_itertools import first, sliced
 
 from utils.frozendict import FrozenDict
 
+from .common import common_patterns
 from .core import (
     DUMMY_LOC,
     EMPTY,
@@ -20,7 +21,6 @@ from .core import (
     Terminal,
     Tokenizer,
 )
-from .common import common_patterns
 
 
 def update_set(set1, set2):
@@ -136,9 +136,10 @@ class Grammar(FrozenDict[NonTerminal, frozenset[Expansion]]):
     @staticmethod
     def from_str(
         grammar_str: str,
+        reserved_words: frozenset[str] = frozenset(),
         transform_regex_to_right=False,
     ) -> "Grammar":
-        return _parse_grammar(grammar_str, transform_regex_to_right)
+        return _parse_grammar(grammar_str, reserved_words, transform_regex_to_right)
 
     class Builder:
         """
@@ -259,7 +260,8 @@ def iter_symbol_tokens(input_str: str) -> Iterator[str]:
 
 def _parse_grammar(
     grammar_str: str,
-    transform_regex_to_right_recursive: bool,
+    reserved_words: frozenset[str] = frozenset(),
+    transform_regex_to_right_recursive: bool = False,
 ) -> Grammar:
     """Ad Hoc grammar parser"""
     grammar_builder = Grammar.Builder()
@@ -361,4 +363,4 @@ def _parse_grammar(
             else:
                 grammar_builder.add_expansion(origin, expansion)
 
-    return grammar_builder.build(Tokenizer(patterns=patterns))
+    return grammar_builder.build(Tokenizer(patterns, reserved_words))

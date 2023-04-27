@@ -111,8 +111,7 @@ GRAMMAR3 = """
         <Preposition> -> 'from' | 'to' | 'on' | 'near' | 'through'
     """
 
-DECAF_GRAMMAR = (
-    """
+GRAMMAR_DECAF = """
         <program> ->  <import_decl>* <field_decl>* <method_decl>*
         <import_decl> -> 'import' word (',' word)* ';'
         <field_decl> -> <type> <var_decl> (',' <var_decl>)* ';'
@@ -149,48 +148,25 @@ DECAF_GRAMMAR = (
                 | <expr> '?' <expr> ':' <expr>
                 | 'len' '(' word ')'
         <bin_op> -> '+' | '-' | '*' | '/' | '%' | '&&' | '||' | '==' | '!=' | '<' | '>' | '<=' | '>='
-        <literal> -> number | char | 'true' | 'false'
-    """,
-    {
-        "int": "int",
-        "char": "char",
-        "float": "float",
-        "if": "if",
-        "else": "else",
-        "while": "while",
-        "return": "return",
-        "break": "break",
-        "continue": "continue",
-        "(": "(",
-        ")": ")",
-        "{": "{",
-        "}": "}",
-        "[": "[",
-        "]": "]",
-        ";": ";",
-        "=": "=",
-        ",": ",",
-        "+": "+",
-        "-": "-",
-        "*": "*",
-        "/": "/",
-        "<": "<",
-        ">": ">",
-        "<=": "<=",
-        ">=": ">=",
-        "==": "==",
-        "!=": "!=",
-        "&&": "&&",
-        "!": "!",
-        "++": "++",
-        "--": "--",
-        "*=": "*=",
-        "/=": "/=",
-        "%=": "%=",
-        "+=": "+=",
-        "-=": "-=",
-        "<<=": "<<=",
-    },
+        <literal> -> number | 'true' | 'false'
+    """
+
+RESERVED_DECAF = frozenset(
+    (
+        "void",
+        "float",
+        "int",
+        "char",
+        "return",
+        "break",
+        "continue",
+        "if",
+        "while",
+        "else",
+        "for",
+        "import",
+        "len",
+    ),
 )
 
 GRAMMAR_LL1 = (

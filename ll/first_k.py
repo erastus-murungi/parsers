@@ -32,8 +32,8 @@ def get_non_terminal_result_function(
     result_function: ResultFunction, non_terminal: NonTerminal, k: int
 ) -> ResultFunction:
     def f(result_vector: FirstSet) -> TerminalSequenceSet:
-        r = result_vector[non_terminal]
-        return result_function(result_vector).k_concat(r, k)
+        ts_set = result_vector[non_terminal]
+        return result_function(result_vector).k_concat(ts_set, k)
 
     return f
 
@@ -116,5 +116,5 @@ if __name__ == "__main__":
 
     from utils.grammars import GRAMMAR_JSON
 
-    g = Grammar.from_str(*GRAMMAR_JSON)
+    g = Grammar.from_str(GRAMMAR_JSON)
     rich_print(pretty_repr(first_k(g, 2)))

@@ -1,15 +1,13 @@
+import os
 import subprocess
 from collections import defaultdict
 from hmac import HMAC
-
 from pprint import saferepr
 
 from rich.pretty import pretty_repr
 
 from grammar import Grammar, Terminal
 from lr import Accept, Goto, LALR1ParsingTable, Reduce, Shift
-import os
-
 
 OUTPUT_DIR = "_generated"
 TEMPLATE_DIR = "templates"
@@ -29,6 +27,7 @@ def gen_parser(grammar: Grammar):
             f"{{{', '.join(f'{identifier!r} : re.compile({pattern.pattern!r}, re.DOTALL)' for identifier, pattern in tokenizer.patterns.items())}}} ",
         )
         temp = temp.replace('"%filename%"', repr(tokenizer.get_filename()))
+        temp = temp.replace('"%reserved%"', repr(tokenizer.reserved))
 
         with open(parser_generated_file_path, "w") as f1:
             f1.write(temp)

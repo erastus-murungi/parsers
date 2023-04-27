@@ -18,7 +18,7 @@ def k_length(terminals: Iterable[Terminal], k: int) -> int:
     return k_len
 
 
-class TerminalSequence(tuple[Terminal]):
+class TerminalSequence(tuple[Terminal, ...]):
     k: int
 
     def __new__(cls, terminals: Iterable[Terminal], k: int):

@@ -190,13 +190,19 @@ NullableSet = set[Symbol]
 
 
 class Tokenizer:
-    def __init__(self, patterns: dict[str, re.Pattern], filename: str = "(void)"):
+    def __init__(
+        self,
+        patterns: dict[str, re.Pattern],
+        reserved: frozenset[str] = frozenset(),
+        filename: str = "(void)",
+    ):
         self._filename = filename
         self._code = ""
         self._linenum = 0
         self._column = 0
         self._code_offset = 0
         self.patterns = patterns
+        self.reserved = reserved
 
     def get_filename(self):
         return self._filename
@@ -215,17 +221,6 @@ class Tokenizer:
     def _skip_n_chars(self, n):
         self._code_offset += n
         self._column += n
-
-    def _match_unknown(self, pos) -> Terminal:
-        # no token found
-        word_match = re.match(r"\b\w+\b", self._remaining_code())
-        if word_match is not None and len(word_match.group(0)) > 1:
-            word = word_match.group(0).strip()
-            lexeme, ret_type = word, "word"
-        else:
-            lexeme, ret_type = self._current_char(), "char"
-        self._skip_n_chars(len(lexeme) - 1)
-        return Terminal(ret_type, lexeme, pos)
 
     def _current_char(self):
         return self._code[self._code_offset]
@@ -248,16 +243,24 @@ class Tokenizer:
                 # get the longest match
                 lexeme, identifier = max(matches, key=lambda t: len(t[0]))
                 self._skip_n_chars(len(lexeme) - 1)
-                token = Terminal(identifier, lexeme, token_location)
+                if lexeme in self.reserved:
+                    token = Terminal.from_token_type(lexeme, token_location)
+                else:
+                    token = Terminal(identifier, lexeme, token_location)
             else:
                 # we try to match whitespace while avoiding NEWLINES because we
                 # are using NEWLINES to split lines in our program
-                if self._current_char() != "\n" and self._current_char().isspace():
-                    long_whitespace = re.match(
-                        r"[ \r\t]+", self._remaining_code()
-                    ).group(0)
-                    token = Terminal("whitespace", long_whitespace, token_location)
-                    self._skip_n_chars(len(long_whitespace) - 1)
+                if (
+                    self._current_char() != "\n"
+                    and (
+                        long_whitespace := re.match(r"[ \r\t]+", self._remaining_code())
+                    )
+                    is not None
+                ):
+                    token = Terminal(
+                        "whitespace", long_whitespace.group(0), token_location
+                    )
+                    self._skip_n_chars(len(long_whitespace.group(0)) - 1)
                 elif self._current_char() == "#":
                     token = self.handle_comment()
                 elif self._current_char() == "\n":
@@ -266,7 +269,9 @@ class Tokenizer:
                     # we set column to -1 because it will be incremented to 0 after the token has been yielded
                     self._column = -1
                 else:
-                    token = self._match_unknown(token_location)
+                    raise ValueError(
+                        'unrecognized token: "' + self._current_char() + '"'
+                    )
 
             yield token
             self._to_next_char()
