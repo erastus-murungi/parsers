@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from collections import deque
 from typing import Literal, cast
 
+from cyk.cyk import cyk_parse
 from earley import gen_earley_sets
 from grammar import EMPTY, EOF, Expansion, Grammar, NonTerminal, Terminal
 from ll import LL1ParsingTable
@@ -227,7 +228,9 @@ class LALR1Recognizer(LR0Recognizer):
 
 
 class CYKRecognizer(Recognizer):
-    pass
+    def recognizes(self) -> bool:
+        _, table, _ = cyk_parse(self.grammar, self.source)
+        return self.grammar.orig_start in table[(0, len(self.tokens))]
 
 
 def recognize(
@@ -268,6 +271,6 @@ if __name__ == "__main__":
 
     from utils.grammars import GRAMMAR_JSON
 
-    g = Grammar.from_str(GRAMMAR_JSON, transform_regex_to_right=True)
+    g = Grammar.from_str(GRAMMAR_JSON, transform_regex_to_right=False)
     rich_print(pretty_repr(g))
-    rich_print(pretty_repr(recognize(g, "[1, 2, 4, 5]", recognizer="llk")))
+    rich_print(pretty_repr(recognize(g, "[1, 2, 4, 5]", recognizer="cyk")))

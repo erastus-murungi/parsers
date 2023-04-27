@@ -16,8 +16,7 @@ GRAMMAR2 = """
        <mult_term> -> (<mult_op> <term>)?
        <factor> -> <power> <power_factor>
        <power_factor> -> (<power> '^' <factor>)?
-       <power> -> <number> | '(' <expression> ')'
-       <number> -> integer | float
+       <power> -> number | '(' <expression> ')'
        <add_op> -> '+' | '-'
        <mult_op> -> '*' | '/'
    """
@@ -150,7 +149,7 @@ DECAF_GRAMMAR = (
                 | <expr> '?' <expr> ':' <expr>
                 | 'len' '(' word ')'
         <bin_op> -> '+' | '-' | '*' | '/' | '%' | '&&' | '||' | '==' | '!=' | '<' | '>' | '<=' | '>='
-        <literal> -> integer | float | char | 'true' | 'false'
+        <literal> -> number | char | 'true' | 'false'
     """,
     {
         "int": "int",
@@ -220,20 +219,16 @@ GRAMMAR_JSON = """
         <Object> -> '{' <Pair> ( ',' <Pair> )* '}' 
                     | '{' '}'
 
-        <Pair>  -> <String> ':' <Value>
+        <Pair>  -> escaped_string ':' <Value>
 
         <Array> -> '[' <Value> ( ',' <Value> )* ']'
          | '[' ']'
 
-        <Value> -> <String>
-         | <Number>
+        <Value> -> escaped_string
+         | number
          | <Object>
          | <Array>
          | 'true'
          | 'false'
          | 'null'
-
-        <String> -> r'".*?"'
-
-        <Number> -> float | integer
     """

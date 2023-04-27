@@ -20,7 +20,7 @@ from .core import (
     Terminal,
     Tokenizer,
 )
-from .number_regex import Floatnumber, Intnumber
+from .common import common_patterns
 
 
 def update_set(set1, set2):
@@ -257,16 +257,6 @@ def iter_symbol_tokens(input_str: str) -> Iterator[str]:
         input_str = input_str[m.end() :].strip()
 
 
-common = {
-    "integer": re.compile(Intnumber),
-    "float": re.compile(Floatnumber),
-    "whitespace": re.compile(r"\s+"),
-    "newline": re.compile(r"\n"),
-    "char": re.compile(r"."),
-    "word": re.compile(r"\w+"),
-}
-
-
 def _parse_grammar(
     grammar_str: str,
     transform_regex_to_right_recursive: bool,
@@ -339,8 +329,8 @@ def _parse_grammar(
                     elif lexeme.startswith("<"):
                         # this is a non-terminal
                         rule.append(NonTerminal(lexeme[1:-1]))
-                    elif lexeme in common:
-                        patterns[lexeme] = common[lexeme]
+                    elif lexeme in common_patterns:
+                        patterns[lexeme] = common_patterns[lexeme]
                         # keywords
                         rule.append(Terminal(lexeme, lexeme, DUMMY_LOC))
                     elif re.match(r"'.*'", lexeme):
