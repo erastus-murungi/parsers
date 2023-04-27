@@ -1,7 +1,7 @@
 from itertools import islice
 from typing import Iterable
 
-from more_itertools import partition
+from more_itertools import partition, take
 from typeguard import typechecked
 
 from grammar import EMPTY, EOF, Terminal
@@ -10,9 +10,7 @@ from grammar import EMPTY, EOF, Terminal
 def k_length(terminals: Iterable[Terminal], k: int) -> int:
     # Returns the k-length, i.e. the number of symbols that contributes to lookahead sizes
     k_len = 0
-    for terminal in terminals:
-        if k_len >= k:
-            break
+    for terminal in take(k, terminals):
         k_len += 1
         if terminal is EOF:
             break
@@ -58,8 +56,7 @@ class TerminalSequence(tuple[Terminal, ...]):
             # k: w would be the same as k: (w + x)
             return TerminalSequence(terminals, k)
 
-        my_k_len = k_length(terminals, k)
-        to_take = k_length(other, k - my_k_len)
+        to_take = k_length(other, k - k_length(terminals, k))
         terminals.extend(other[:to_take])
         return TerminalSequence(terminals, k)
 
@@ -116,7 +113,9 @@ class TerminalSequenceSet(set[TerminalSequence]):
     def is_complete(self):
         return all(item.is_complete(self.k) for item in self)
 
-    def k_concat(self, other_ts_set: "TerminalSequenceSet", k) -> "TerminalSequenceSet":
+    @typechecked
+    def k_concat(self, other_ts_set: "TerminalSequenceSet") -> "TerminalSequenceSet":
+        k = self.k
         if not self.is_complete():
             incomplete, complete = partition(lambda x: x.is_complete(k), self)
             ts_set = TerminalSequenceSet(complete, k)

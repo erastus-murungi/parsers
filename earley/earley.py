@@ -1,6 +1,6 @@
 from typing import NamedTuple, Optional, cast
 
-from grammar import Expansion, Grammar, NonTerminal, Symbol, Terminal, EOF
+from grammar import EOF, Expansion, Grammar, NonTerminal, Symbol, Terminal
 from lr import LRState
 
 

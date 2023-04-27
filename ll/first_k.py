@@ -1,20 +1,20 @@
 from collections import defaultdict
-from functools import cache
-from typing import Callable, cast
+from functools import cache, reduce
+from typing import Callable
 
-from more_itertools import split_at, first, one
+from more_itertools import split_at
 
 from grammar import Expansion, Grammar, NonTerminal, Terminal
 from ll.core import TerminalSequence, TerminalSequenceSet
 from utils.fixpoint import fixpoint
-from functools import reduce
-
-MAX_ITERATIONS = 1000
 
 FirstSet = dict[NonTerminal | Expansion, TerminalSequenceSet]
+
+# compute the first_k set of a terminal sequence or a non-terminal
+# k, and the terminal sequence or non-terminal, and transfer_function of first element
+# are bound to its scope
 TransferFunction = Callable[[FirstSet], TerminalSequenceSet]
 EquationSystem = dict[Expansion, TransferFunction]
-ResultFunction = Callable[[FirstSet], TerminalSequenceSet]
 
 
 def init_first_set(grammar: Grammar, k: int) -> FirstSet:
@@ -26,29 +26,32 @@ def init_first_set(grammar: Grammar, k: int) -> FirstSet:
                 initial_first_set[expansion] = TerminalSequenceSet.empty(k)
         return initial_first_set
     else:
-        return {lhs: rhs.increment_k(k) for lhs, rhs in first_k(grammar, k - 1).items()}
+        return {
+            lhs: ts_set.increment_k(k)
+            for lhs, ts_set in first_k(grammar, k - 1).items()
+        }
 
 
 @cache
 def first_k(grammar: Grammar, k: int) -> FirstSet:
-    def concat(
-        result_function: ResultFunction, symbols: list[Terminal] | list[NonTerminal]
-    ) -> ResultFunction:
+    def append_transfer_function(
+        transfer_function: TransferFunction, symbols: list[Terminal] | list[NonTerminal]
+    ) -> TransferFunction:
         match symbols:
-            case [NonTerminal()]:
-                return lambda first_set: result_function(first_set).k_concat(
-                    first_set[one(symbols)], k
+            case [NonTerminal() as nt]:
+                return lambda first_set: transfer_function(first_set).k_concat(
+                    first_set[nt]
                 )
             case [Terminal(), *_]:
-                return lambda first_set: result_function(first_set).k_concat(
-                    TerminalSequenceSet.of(TerminalSequence(symbols, k), k), k
+                return lambda first_set: transfer_function(first_set).k_concat(
+                    TerminalSequenceSet.of(TerminalSequence(symbols, k), k)
                 )
             case []:
-                return result_function
+                return transfer_function
 
     equation_system: EquationSystem = {
         expansion: reduce(
-            concat,
+            append_transfer_function,
             split_at(
                 expansion,
                 pred=lambda symbol: isinstance(symbol, NonTerminal),
@@ -75,7 +78,7 @@ if __name__ == "__main__":
     from rich import print as rich_print
     from rich.pretty import pretty_repr
 
-    from utils.grammars import GRAMMAR_JSON
+    from utils.grammars import GRAMMAR_LL5
 
-    g = Grammar.from_str(GRAMMAR_JSON)
+    g = Grammar.from_str(GRAMMAR_LL5)
     rich_print(pretty_repr(first_k(g, 2)))
