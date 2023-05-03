@@ -1,10 +1,10 @@
 from itertools import islice
-from typing import Iterable
+from typing import Iterable, cast
 
-from more_itertools import partition, take
+from more_itertools import first, one, partition, split_at, take
 from typeguard import typechecked
 
-from grammar import EMPTY, EOF, Terminal
+from grammar import EMPTY, EOF, Expansion, NonTerminal, Terminal
 
 
 def k_length(terminals: Iterable[Terminal], k: int) -> int:
@@ -141,3 +141,21 @@ class TerminalSequenceSet(set[TerminalSequence]):
 
     def __ior__(self, other):
         return self._update(other)
+
+
+Part = TerminalSequenceSet | NonTerminal
+
+
+@typechecked
+def gen_parts(expansion: Expansion, k: int) -> list[Part]:
+    return [
+        cast(NonTerminal, one(symbols))
+        if isinstance(first(symbols), NonTerminal)
+        else TerminalSequenceSet.of(cast(list[Terminal], symbols), k)
+        for symbols in split_at(
+            expansion,
+            pred=lambda symbol: isinstance(symbol, NonTerminal),
+            keep_separator=True,
+        )
+        if symbols
+    ]

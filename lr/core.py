@@ -2,7 +2,15 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import count
-from typing import Generic, Hashable, Iterable, Protocol, TypeVar, runtime_checkable
+from typing import (
+    Generic,
+    Hashable,
+    Iterable,
+    Protocol,
+    TypeVar,
+    Union,
+    runtime_checkable,
+)
 
 from prettytable import PrettyTable
 
@@ -74,16 +82,8 @@ class LRState(list[T]):
         return "\n".join(str(item) for item in self)
 
 
-class Action(ABC):
-    """
-    The super class of all possible actions that can be taken by a shift-reduce parser.
-    """
-
-    pass
-
-
 @dataclass(frozen=True, slots=True)
-class Reduce(Action):
+class Reduce:
     lhs: NonTerminal
     len_rhs: int
 
@@ -92,7 +92,7 @@ class Reduce(Action):
 
 
 @dataclass(frozen=True, slots=True)
-class Goto(Action, Generic[T]):
+class Goto(Generic[T]):
     state: LRState[T]
 
     def __str__(self):
@@ -100,12 +100,12 @@ class Goto(Action, Generic[T]):
 
 
 @dataclass(frozen=True, slots=True)
-class Accept(Action):
+class Accept:
     pass
 
 
 @dataclass(frozen=True, slots=True)
-class Shift(Action, Generic[T]):
+class Shift(Generic[T]):
     """
     Advance input one token;
     push `state` on stack.
@@ -121,6 +121,9 @@ class Shift(Action, Generic[T]):
 
     def __str__(self):
         return f"Shift(\n{self.state!s}\n)"
+
+
+Action = Union[Reduce, Goto, Accept, Shift]
 
 
 class LRTable(dict[tuple[LRState[T], str], Action], ABC):

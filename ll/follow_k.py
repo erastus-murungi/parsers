@@ -1,10 +1,10 @@
 from functools import cache
 from typing import Callable, NamedTuple
 
-from more_itertools import split_at
+from typeguard import typechecked
 
-from grammar import Grammar, NonTerminal, Terminal
-from ll.core import TerminalSequenceSet
+from grammar import Grammar, NonTerminal
+from ll.core import TerminalSequenceSet, gen_parts, Part
 from ll.first_k import first_k
 from utils.fixpoint import fixpoint, reduce
 
@@ -41,50 +41,36 @@ def follow_k(grammar: Grammar, k: int) -> tuple[FollowSetUNT, FollowSet]:
 
         return _merge_results
 
+    @typechecked
     def append_transfer_function(
-        transfer_function: TransferFunction, symbols: list[Terminal] | list[NonTerminal]
+        transfer_function: TransferFunction, part: Part
     ) -> TransferFunction:
-        match symbols:
-            case [NonTerminal() as non_terminal]:
-                return lambda follow_set_unt: transfer_function(
-                    follow_set_unt
-                ).k_concat(first_set[non_terminal])
-            case [Terminal(), *_]:
-                return lambda follow_set_unt: transfer_function(
-                    follow_set_unt
-                ).k_concat(TerminalSequenceSet.of(symbols, k))
-            case []:
-                return transfer_function
-            case _:
-                raise ValueError(
-                    "symbols must be a list of terminals or a single non-terminal"
-                )
+        if isinstance(part, TerminalSequenceSet):
+            return lambda follow_set_unt: transfer_function(follow_set_unt).k_concat(
+                part
+            )
+        else:
+            return lambda follow_set_unt: transfer_function(follow_set_unt).k_concat(
+                first_set[part]
+            )
 
     first_set = first_k(grammar, k)
 
     equation_system: EquationSystem = {}
     for origin, expansion in grammar.iter_productions():
-        parts = tuple(
-            split_at(
-                expansion,
-                pred=lambda symbol: isinstance(symbol, NonTerminal),
-                keep_separator=True,
-            )
-        )
-
-        for part_index, syms in enumerate(parts):
-            match syms:
-                case [NonTerminal() as nt]:
-                    equation_system[
-                        UniqueNonTerminal(origin, nt, part_index)
-                    ] = merge_transfer_functions(
-                        reduce(
-                            append_transfer_function,
-                            parts[part_index + 1 :],
-                            lambda _: TerminalSequenceSet.eps(k),
-                        ),
-                        origin,
-                    )
+        parts = gen_parts(expansion, k)
+        for part_index, part in enumerate(parts):
+            if isinstance(part, NonTerminal):
+                equation_system[
+                    UniqueNonTerminal(origin, part, part_index)
+                ] = merge_transfer_functions(
+                    reduce(
+                        append_transfer_function,
+                        parts[part_index + 1 :],
+                        lambda _: TerminalSequenceSet.eps(k),
+                    ),
+                    origin,
+                )
 
     follow_set: FollowSet = {
         non_terminal: TerminalSequenceSet.empty(k)

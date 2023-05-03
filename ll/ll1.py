@@ -2,7 +2,6 @@ from prettytable import PrettyTable
 
 from grammar import EMPTY, Expansion, Grammar, NonTerminal
 
-
 LL1Key = tuple[NonTerminal, str]
 
 
