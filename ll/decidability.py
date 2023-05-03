@@ -58,7 +58,7 @@ def compute_k(grammar: Grammar, max_k: int = 10) -> Optional[int]:
             (is_decidable(grammar, non_terminal, max_k) for non_terminal in grammar),
         ),
         default=None,
-    )
+    )  # type: ignore
 
 
 if __name__ == "__main__":

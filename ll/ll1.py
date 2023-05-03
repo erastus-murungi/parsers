@@ -3,7 +3,10 @@ from prettytable import PrettyTable
 from grammar import EMPTY, Expansion, Grammar, NonTerminal
 
 
-class LL1ParsingTable(dict[tuple[NonTerminal, str], Expansion]):
+LL1Key = tuple[NonTerminal, str]
+
+
+class LL1ParsingTable(dict[LL1Key, Expansion]):
     def __init__(self, grammar: Grammar):
         super().__init__()
         self.grammar: Grammar = grammar
@@ -11,20 +14,19 @@ class LL1ParsingTable(dict[tuple[NonTerminal, str], Expansion]):
 
     def construct(self):
         FOLLOW = self.grammar.gen_follow()
-        for origin, expansions in self.grammar.items():
-            for expansion in expansions:
-                first = self.grammar.first(expansion)
-                for terminal in first:
-                    if terminal is not EMPTY:
-                        self[(origin, terminal.name)] = expansion
-                if EMPTY in first:
-                    for terminal in FOLLOW[origin]:
-                        self[(origin, terminal.name)] = expansion
+        for origin, expansion in self.grammar.iter_productions():
+            first = self.grammar.first(expansion)
+            for terminal in first:
+                if terminal is not EMPTY:
+                    self[(origin, terminal.name)] = expansion
+            if EMPTY in first:
+                for terminal in FOLLOW[origin]:
+                    self[(origin, terminal.name)] = expansion
 
-    def __getitem__(self, item: tuple[NonTerminal, str]) -> Expansion:
-        return super().__getitem__(item)
+    def __getitem__(self, key: LL1Key) -> Expansion:
+        return super().__getitem__(key)
 
-    def __setitem__(self, key: tuple[NonTerminal, str], rule: Expansion):
+    def __setitem__(self, key: LL1Key, rule: Expansion):
         origin, terminal_id = key
         if (origin, terminal_id) in self:
             raise ValueError(

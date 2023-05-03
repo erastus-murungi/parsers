@@ -8,8 +8,10 @@ from ll.decidability import compute_k
 from ll.first_k import first_k
 from ll.follow_k import follow_k
 
+LLKKey = tuple[NonTerminal, TerminalSequence]
 
-class LLKParsingTable(dict[[NonTerminal, TerminalSequence], Expansion]):
+
+class LLKParsingTable(dict[LLKKey, Expansion]):
     def __init__(self, grammar: Grammar, max_k: int = 10):
         super().__init__()
         k = compute_k(grammar, max_k)
@@ -41,20 +43,19 @@ class LLKParsingTable(dict[[NonTerminal, TerminalSequence], Expansion]):
     def construct(self):
         FOLLOW = follow_k(self.grammar, self.k)[1]
         FIRST = first_k(self.grammar, self.k)
-        for origin, expansions in self.grammar.items():
-            for expansion in expansions:
-                first = FIRST[expansion]
-                for terminal_string in first:
-                    if not terminal_string.is_eps():
-                        self[(origin, terminal_string)] = expansion
-                if any(ts.is_eps() for ts in first):
-                    for terminal in FOLLOW[origin]:
-                        self[(origin, terminal)] = expansion
+        for origin, expansion in self.grammar.iter_productions():
+            first = FIRST[expansion]
+            for ts in first:
+                if not ts.is_eps():
+                    self[(origin, ts)] = expansion
+            if any(ts.is_eps() for ts in first):
+                for ts in FOLLOW[origin]:
+                    self[(origin, ts)] = expansion
 
-    def __getitem__(self, item: tuple[NonTerminal, str]) -> Expansion:
-        return super().__getitem__(item)
+    def __getitem__(self, key: LLKKey) -> Expansion:
+        return super().__getitem__(key)
 
-    def __setitem__(self, key: tuple[NonTerminal, str], rule: Expansion):
+    def __setitem__(self, key: LLKKey, rule: Expansion):
         origin, terminal_id = key
         if (origin, terminal_id) in self:
             raise ValueError(
@@ -93,4 +94,3 @@ if __name__ == "__main__":
 
     g = Grammar.from_str(*GRAMMAR_JSON)
     rich_print(pretty_repr(g))
-    # rich_print(pretty_repr(LLKParsingTable(g)))

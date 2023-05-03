@@ -1,4 +1,4 @@
-from functools import cache, reduce
+from functools import cache
 from typing import Callable, NamedTuple
 
 from more_itertools import split_at
@@ -6,7 +6,7 @@ from more_itertools import split_at
 from grammar import Grammar, NonTerminal, Terminal
 from ll.core import TerminalSequenceSet
 from ll.first_k import first_k
-from utils.fixpoint import fixpoint
+from utils.fixpoint import fixpoint, reduce
 
 
 class UniqueNonTerminal(NamedTuple):

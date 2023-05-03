@@ -1,13 +1,13 @@
 from collections import defaultdict
-from functools import cache, reduce
-from typing import Callable
+from functools import cache
+from typing import Callable, cast
 
-from more_itertools import split_at
+from more_itertools import split_at, one, first
 from typeguard import typechecked
 
 from grammar import Expansion, Grammar, NonTerminal, Terminal
 from ll.core import TerminalSequenceSet
-from utils.fixpoint import fixpoint
+from utils.fixpoint import fixpoint, reduce
 
 FirstSet = dict[NonTerminal | Expansion, TerminalSequenceSet]
 
@@ -37,30 +37,34 @@ def init_first_set(grammar: Grammar, k: int) -> FirstSet:
 def first_k(grammar: Grammar, k: int) -> FirstSet:
     @typechecked
     def append_transfer_function(
-        transfer_function: TransferFunction, symbols: list[Terminal] | list[NonTerminal]
+        transfer_function: TransferFunction, element: TerminalSequenceSet | NonTerminal
     ) -> TransferFunction:
-        match symbols:
-            case [NonTerminal() as nt]:
+        match element:
+            case TerminalSequenceSet() as ts_set:
+                return lambda first_set: transfer_function(first_set).k_concat(ts_set)
+            case NonTerminal() as nt:
                 return lambda first_set: transfer_function(first_set).k_concat(
                     first_set[nt]
                 )
-            case [Terminal(), *_]:
-                return lambda first_set: transfer_function(first_set).k_concat(
-                    TerminalSequenceSet.of(symbols, k)
-                )
-            case []:
-                return transfer_function
             case _:
-                raise ValueError(f"Invalid symbol {symbols}")
+                raise ValueError(
+                    "element must be a terminal sequence or a non-terminal"
+                )
 
     equation_system: EquationSystem = {
         expansion: reduce(
             append_transfer_function,
-            split_at(
-                expansion,
-                pred=lambda symbol: isinstance(symbol, NonTerminal),
-                keep_separator=True,
-            ),
+            [
+                one(symbols)
+                if isinstance(first(symbols), NonTerminal)
+                else TerminalSequenceSet.of(cast(list[Terminal], symbols), k)
+                for symbols in split_at(
+                    expansion,
+                    pred=lambda symbol: isinstance(symbol, NonTerminal),
+                    keep_separator=True,
+                )
+                if symbols
+            ],
             lambda _: TerminalSequenceSet.eps(k),
         )
         for _, expansion in grammar.iter_productions()
