@@ -1,5 +1,5 @@
 from itertools import islice
-from typing import Iterable, cast
+from typing import Iterable, cast, Self
 
 from more_itertools import first, one, partition, split_at, take
 from typeguard import typechecked
@@ -7,7 +7,7 @@ from typeguard import typechecked
 from grammar import EMPTY, EOF, Expansion, NonTerminal, Terminal
 
 
-def k_length(terminals: Iterable[Terminal], k: int) -> int:
+def get_k_length(terminals: Iterable[Terminal], k: int) -> int:
     # Returns the k-length, i.e. the number of symbols that contributes to lookahead sizes
     k_len = 0
     for terminal in take(k, terminals):
@@ -21,8 +21,9 @@ class TerminalSequence(tuple[Terminal, ...]):
     def __new__(cls, terminals: Iterable[Terminal], k: int):
         return tuple.__new__(TerminalSequence, islice(terminals, k))  # type: ignore
 
-    def is_complete(self, k: int):
-        return not self.is_eps() and len(self) >= k or (self and self[-1] is EOF)
+    def complete(self, k: int) -> bool:
+        assert len(self) <= k
+        return not self.is_eps() and len(self) == k or (self and self[-1] is EOF)
 
     @staticmethod
     def eps():
@@ -48,11 +49,11 @@ class TerminalSequence(tuple[Terminal, ...]):
             # Remove possible epsilon terminal
             terminals.clear()
 
-        if self.is_complete(k):
+        if self.complete(k):
             # k: w would be the same as k: (w + x)
             return TerminalSequence(terminals, k)
 
-        to_take = k_length(other, k - k_length(terminals, k))
+        to_take = get_k_length(other, k - get_k_length(terminals, k))
         terminals.extend(other[:to_take])
         return TerminalSequence(terminals, k)
 
@@ -68,7 +69,7 @@ class TerminalSequenceSet(set[TerminalSequence]):
         super().__init__()
         self.k = k
         for item in items:
-            assert k_length(item, k) <= k
+            assert get_k_length(item, k) <= k
             self.add(item)
 
     @staticmethod
@@ -102,20 +103,21 @@ class TerminalSequenceSet(set[TerminalSequence]):
         assert k >= self.k
         return TerminalSequenceSet(self, k)
 
-    def is_complete(self):
-        return all(item.is_complete(self.k) for item in self)
-
     @typechecked
     def k_concat(self, other_ts_set: "TerminalSequenceSet") -> "TerminalSequenceSet":
-        k = self.k
-        if not self.is_complete():
-            incomplete, complete = partition(lambda x: x.is_complete(k), self)
-            ts_set = TerminalSequenceSet(complete, k)
-            for ts in incomplete:
-                for other_ts in other_ts_set:
-                    ts_set.add(ts.k_concat(other_ts, k))
-            return ts_set
-        return self
+        return (
+            self
+            if all(item.complete(self.k) for item in self)
+            else self._k_concat_with_incomplete(other_ts_set)
+        )
+
+    def _k_concat_with_incomplete(self, other: Iterable[TerminalSequence]) -> Self:
+        incomplete, complete_tss = partition(lambda x: x.complete(self.k), self)
+        complete = TerminalSequenceSet(complete_tss, self.k)
+        for ts in incomplete:
+            for other_ts in other:
+                complete.add(ts.k_concat(other_ts, self.k))
+        return complete
 
     def discard(self, element) -> None:
         raise NotImplementedError(
