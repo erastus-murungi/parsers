@@ -2,7 +2,6 @@ import os
 import subprocess
 from collections import defaultdict
 from hmac import HMAC
-from pprint import saferepr
 
 from rich.pretty import pretty_repr
 

@@ -3,143 +3,15 @@
 """
 
 import re
-from typing import Iterator
 
 from more_itertools import one
 
-from grammar import EOF, Loc, Terminal
+from grammar import EOF, Terminal, Tokenizer
 from parsers.parser import ParseTree
 
 patterns: dict[str, re.Pattern] = "%patterns%"  # type: ignore
 
 reserved: frozenset[str] = "%reserved%"  # type: ignore
-
-
-class Tokenizer:
-    def __init__(
-        self,
-        filename: str = "%filename%",
-    ):
-        self._filename = filename
-        self._code = ""
-        self._linenum = 0
-        self._column = 0
-        self._code_offset = 0
-        self.patterns = patterns
-        self.reserved = reserved
-
-    def get_filename(self):
-        return self._filename
-
-    def _reset(self, code: str, filename: str = "%filename%"):
-        self._filename = filename
-        self._code = code + "\n" if code and code[-1] != "\n" else code
-        self._linenum = 0
-        self._column = 0
-        self._code_offset = 0
-
-    def _to_next_char(self):
-        self._code_offset += 1
-        self._column += 1
-
-    def _skip_n_chars(self, n):
-        self._code_offset += n
-        self._column += n
-
-    def _current_char(self):
-        return self._code[self._code_offset]
-
-    def _remaining_code(self):
-        return self._code[self._code_offset :]
-
-    def _tokenize(self) -> Iterator[Terminal]:
-        while self._code_offset < len(self._code):
-            token_location = Loc(
-                self._filename, self._linenum, self._column, self._code_offset
-            )
-            # greedy attempt
-            matches: list[tuple[str, str]] = []
-            for identifier, pattern in self.patterns.items():
-                matching = pattern.match(self._remaining_code())
-                if matching is not None:
-                    matches.append((matching.group(0), identifier))
-            if matches:
-                # get the longest match
-                lexeme, identifier = max(matches, key=lambda t: len(t[0]))
-                self._skip_n_chars(len(lexeme) - 1)
-                if lexeme in self.reserved:
-                    token = Terminal.from_token_type(lexeme, token_location)
-                else:
-                    token = Terminal(identifier, lexeme, token_location)
-            else:
-                # we try to match whitespace while avoiding NEWLINES because we
-                # are using NEWLINES to split lines in our program
-                if (
-                    self._current_char() != "\n"
-                    and (m := re.match(r"[ \r\t]+", self._remaining_code())) is not None
-                ):
-                    long_whitespace = m.group(0)
-                    token = Terminal("whitespace", long_whitespace, token_location)
-                    self._skip_n_chars(len(long_whitespace) - 1)
-                elif self._current_char() == "#":
-                    token = self.handle_comment()
-                elif self._current_char() == "\n":
-                    token = Terminal.from_token_type("newline", token_location)
-                    self._linenum += 1
-                    # we set column to -1 because it will be incremented to 0 after the token has been yielded
-                    self._column = -1
-                else:
-                    raise ValueError(
-                        'unrecognized token: "' + self._current_char() + '"'
-                    )
-
-            yield token
-            self._to_next_char()
-
-        # we must always end our stream of tokens with an EOF token
-        yield EOF
-
-    def handle_comment(self):
-        end_comment_pos = self._remaining_code().index("\n")
-        if end_comment_pos == -1:
-            raise ValueError()
-        comment = self._remaining_code()[:end_comment_pos]
-        token = Terminal(
-            "comment",
-            comment,
-            Loc(
-                self._filename,
-                self._linenum,
-                self._column,
-                self._code_offset,
-            ),
-        )
-        self._skip_n_chars(len(comment))
-        self._linenum += 1
-        # we set column to -1 because it will be incremented to 0 after the token has been yielded
-        self._column = -1
-        return token
-
-    def get_tokens(self, code: str) -> Iterator[Terminal]:
-        """
-        :return: an iterator over the tokens
-        """
-        self._reset(code)
-        yield from self._tokenize()
-
-    def get_tokens_no_whitespace(self, code: str):
-        return [
-            token
-            for token in self.get_tokens(code)
-            if not (
-                token.name
-                in (
-                    "whitespace",
-                    "newline",
-                    "comment",
-                )
-            )
-        ]
 
 
 Shift = Goto = Accept = int
@@ -165,9 +37,11 @@ states: list[int] = "%states%"  # type: ignore
 
 expected_tokens: dict[int, list[str]] = "%expected_tokens%"  # type: ignore
 
+tokenizer = Tokenizer(patterns, reserved, filename="%filename%")  # type: ignore
+
 
 def parse(input_str: str) -> ParseTree:
-    tokens = Tokenizer().get_tokens_no_whitespace(input_str)
+    tokens = tokenizer.get_tokens_no_whitespace(input_str)
     stack, token_index = [states[0]], 0
     tree: list[ParseTree | Terminal] = []
 

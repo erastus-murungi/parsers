@@ -4,7 +4,7 @@ from typing import Callable, NamedTuple
 from typeguard import typechecked
 
 from grammar import Grammar, NonTerminal
-from ll.core import TerminalSequenceSet, gen_parts, Part
+from ll.core import Part, TerminalSequenceSet, gen_parts
 from ll.first_k import first_k
 from utils.fixpoint import fixpoint, reduce
 

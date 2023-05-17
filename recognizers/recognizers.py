@@ -66,7 +66,7 @@ class BFSTopDownLeftmostRecognizer(Recognizer):
             raise RecognizerError("No rules left to explore")
 
 
-class DFSTopDownLeftmostRecognizer(Recognizer):
+class DfsRecognizer(Recognizer):
     def recognizes(self) -> bool:
         rules: list[Expansion] = [Expansion([self.grammar.start, EOF])]
         seen: set[Expansion] = set()
@@ -98,7 +98,7 @@ class DFSTopDownLeftmostRecognizer(Recognizer):
             raise RecognizerError("No rules left to explore")
 
 
-class LL1Recognizer(Recognizer):
+class Ll1Recognizer(Recognizer):
     def recognizes(self) -> bool:
         parsing_table = LL1ParsingTable(self.grammar)
         stack, token_index = [EOF, self.grammar.orig_start], 0
@@ -126,7 +126,7 @@ class LL1Recognizer(Recognizer):
         return True
 
 
-class LLKRecognizer(Recognizer):
+class LlkRecognizer(Recognizer):
     def recognizes(self) -> bool:
         parsing_table = LLKParsingTable(self.grammar)
         stack, token_index = [EOF, self.grammar.orig_start], 0
@@ -176,7 +176,7 @@ class EarleyRecognizer(Recognizer):
         return True
 
 
-class LR0Recognizer(Recognizer):
+class Lr0Recognizer(Recognizer):
     def get_parsing_table(self):
         return LR0ParsingTable(self.grammar)
 
@@ -212,22 +212,22 @@ class LR0Recognizer(Recognizer):
         )
 
 
-class SLRRecognizer(LR0Recognizer):
+class SlrRecognizer(Lr0Recognizer):
     def get_parsing_table(self):
         return SLRParsingTable(self.grammar)
 
 
-class LR1Recognizer(LR0Recognizer):
+class Lr1Recognizer(Lr0Recognizer):
     def get_parsing_table(self):
         return LR1ParsingTable(self.grammar)
 
 
-class LALR1Recognizer(LR0Recognizer):
+class Lalr1Recognizer(Lr0Recognizer):
     def get_parsing_table(self):
         return LALR1ParsingTable(self.grammar)
 
 
-class CYKRecognizer(Recognizer):
+class CykRecognizer(Recognizer):
     def recognizes(self) -> bool:
         _, table, _ = cyk_parse(self.grammar, self.source)
         return self.grammar.orig_start in table[(0, len(self.tokens) - 2)]
@@ -241,28 +241,8 @@ def recognize(
         "earley", "lalr1", "ll1", "slr", "lr1", "lr0", "dfs", "llk", "cyk"
     ],
 ) -> bool:
-    match recognizer:
-        case "earley":
-            return EarleyRecognizer(grammar, source).recognizes()
-        case "lalr1":
-            return LALR1Recognizer(grammar, source).recognizes()
-        case "ll1":
-            return LL1Recognizer(grammar, source).recognizes()
-        case "slr":
-            return SLRRecognizer(grammar, source).recognizes()
-        case "lr1":
-            return LR1Recognizer(grammar, source).recognizes()
-        case "lr0":
-            return LR0Recognizer(grammar, source).recognizes()
-        case "dfs":
-            return DFSTopDownLeftmostRecognizer(grammar, source).recognizes()
-        case "llk":
-            return LLKRecognizer(grammar, source).recognizes()
-        case "cyk":
-            return CYKRecognizer(grammar, source).recognizes()
-
-        case _:
-            raise ValueError(f"Unknown recognizer {recognizer}")
+    cls = globals().get(f"{recognizer.capitalize()}Recognizer")
+    return cls(grammar, source).recognizes()
 
 
 if __name__ == "__main__":

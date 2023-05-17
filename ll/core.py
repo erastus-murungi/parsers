@@ -1,5 +1,5 @@
 from itertools import islice
-from typing import Iterable, cast, Self
+from typing import Iterable, Self, cast
 
 from more_itertools import first, one, partition, split_at, take
 from typeguard import typechecked
